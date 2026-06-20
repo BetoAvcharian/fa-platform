@@ -4,7 +4,7 @@ import { AumChart } from "@/components/crm/aum-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle } from "lucide-react";
+import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel } from "lucide-react";
 import Link from "next/link";
 import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 
@@ -20,6 +20,10 @@ export default async function DashboardPage() {
     .from("patrimonio")
     .select("fecha_carga, aum")
     .order("fecha_carga", { ascending: true });
+  const { data: licitaciones } = await supabase
+    .from("licitaciones")
+    .select("*")
+    .order("fecha_licitacion", { ascending: true });
 
   const todosClientes = clientes ?? [];
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
@@ -38,6 +42,14 @@ export default async function DashboardPage() {
   const aumActual = chartData.at(-1)?.aum ?? 0;
 
   const tareasPendientes = tareas ?? [];
+  const hoy = new Date();
+  const en21Dias = new Date();
+  en21Dias.setDate(hoy.getDate() + 21);
+  const licitacionesProximas = (licitaciones ?? []).filter((l) => {
+    if (!l.fecha_licitacion) return false;
+    const f = new Date(l.fecha_licitacion);
+    return f >= hoy && f <= en21Dias;
+  });
   const proximosSeguimientos = todosClientes
     .filter((c) => c.fecha_ultimo_contacto)
     .sort((a, b) => (diasDesde(a.fecha_ultimo_contacto) ?? 0) - (diasDesde(b.fecha_ultimo_contacto) ?? 0))
@@ -85,7 +97,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Próximos seguimientos</CardTitle>
@@ -123,6 +135,29 @@ export default async function DashboardPage() {
             {sinContacto90.length === 0 && tareasPendientes.length === 0 && (
               <p className="text-muted-foreground">Sin alertas activas por el momento.</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gavel className="h-4 w-4 text-accent" /> Licitaciones próximas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {licitacionesProximas.length === 0 && (
+              <p className="text-sm text-muted-foreground">Sin licitaciones programadas en los próximos 21 días.</p>
+            )}
+            {licitacionesProximas.map((l) => (
+              <Link
+                key={l.id}
+                href={`/licitaciones/${l.id}`}
+                className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-muted"
+              >
+                <span className="text-sm">{l.nombre}</span>
+                <Badge variant="accent">{l.fecha_licitacion}</Badge>
+              </Link>
+            ))}
           </CardContent>
         </Card>
       </div>

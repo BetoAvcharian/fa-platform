@@ -1,16 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClientesTable } from "@/components/crm/clientes-table";
-import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 
-export default async function ClientesPage() {
+export default async function ExClientesPage() {
   const supabase = await createClient();
 
   const { data: clientes } = await supabase
     .from("clientes")
     .select("*, usuarios:owner_id (nombre, apellido)")
     .eq("tipo", "cliente")
-    .eq("estado", "activo")
-    .order("created_at", { ascending: false });
+    .eq("estado", "perdido")
+    .order("updated_at", { ascending: false });
 
   const rows = (clientes ?? []).map((c: any) => ({
     ...c,
@@ -19,12 +18,11 @@ export default async function ClientesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold">Clientes</h1>
-          <p className="text-sm text-muted-foreground">Clientes activos</p>
-        </div>
-        <NuevoClienteDialog tipoDefault="cliente" />
+      <div>
+        <h1 className="text-xl font-semibold">Ex Clientes</h1>
+        <p className="text-sm text-muted-foreground">
+          Clientes con estado "Perdido". Para mover uno acá, editá su ficha y cambiá el Estado a Perdido.
+        </p>
       </div>
       <ClientesTable clientes={rows} />
     </div>

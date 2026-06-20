@@ -58,6 +58,7 @@ export interface Cliente {
   actividad_declarada: string | null;
   banco_referencia: string | null;
   referenciado_por: string | null;
+  prospecto_trabajando: boolean | null;
   created_at: string;
   updated_at: string;
 }

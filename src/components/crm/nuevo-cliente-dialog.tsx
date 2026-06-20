@@ -33,6 +33,7 @@ const initialState = {
   potencial_usd: "",
   notas: "",
   referenciado_por: "",
+  estado: "activo",
   // domicilio
   domicilio_calle: "",
   domicilio_numero: "",
@@ -68,6 +69,7 @@ function clienteToForm(cliente: Cliente): typeof initialState {
     potencial_usd: cliente.potencial_usd ? String(cliente.potencial_usd) : "",
     notas: cliente.notas ?? "",
     referenciado_por: cliente.referenciado_por ?? "",
+    estado: cliente.estado ?? "activo",
     domicilio_calle: cliente.domicilio_calle ?? "",
     domicilio_numero: cliente.domicilio_numero ?? "",
     domicilio_piso: cliente.domicilio_piso ?? "",
@@ -82,10 +84,10 @@ function clienteToForm(cliente: Cliente): typeof initialState {
   };
 }
 
-export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
+export function NuevoClienteDialog({ cliente, tipoDefault }: { cliente?: Cliente; tipoDefault?: "cliente" | "prospecto" }) {
   const esEdicion = !!cliente;
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(esEdicion ? clienteToForm(cliente!) : initialState);
+  const [form, setForm] = useState(esEdicion ? clienteToForm(cliente!) : { ...initialState, tipo: tipoDefault ?? "prospecto" });
   const [guardando, setGuardando] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -121,6 +123,7 @@ export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
       potencial_usd: form.potencial_usd ? Number(form.potencial_usd) : 0,
       notas: form.notas || null,
       referenciado_por: form.referenciado_por || null,
+      estado: form.estado,
       domicilio_calle: form.domicilio_calle || null,
       domicilio_numero: form.domicilio_numero || null,
       domicilio_piso: form.domicilio_piso || null,
@@ -139,7 +142,7 @@ export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
       ({ error } = await supabase.from("clientes").update(payload).eq("id", cliente!.id));
     } else {
       const { data: { user } } = await supabase.auth.getUser();
-      ({ error } = await supabase.from("clientes").insert({ ...payload, owner_id: user?.id, estado: "activo" }));
+      ({ error } = await supabase.from("clientes").insert({ ...payload, owner_id: user?.id }));
     }
 
     setGuardando(false);
@@ -150,7 +153,7 @@ export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
     }
 
     toast.success(esEdicion ? "Cliente actualizado" : "Cliente creado");
-    if (!esEdicion) setForm(initialState);
+    if (!esEdicion) setForm({ ...initialState, tipo: tipoDefault ?? "prospecto" });
     setOpen(false);
     router.refresh();
   }
@@ -161,7 +164,7 @@ export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
         {esEdicion ? (
           <Button size="sm" variant="outline"><Pencil className="h-4 w-4" /> Editar</Button>
         ) : (
-          <Button size="sm"><Plus className="h-4 w-4" /> Nuevo cliente</Button>
+          <Button size="sm"><Plus className="h-4 w-4" /> {tipoDefault === "cliente" ? "Nuevo cliente" : "Nuevo prospecto"}</Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
@@ -184,6 +187,15 @@ export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
                   <option value="cliente">Cliente</option>
                 </SelectNative>
               </Field>
+              {esEdicion && (
+                <Field label="Estado">
+                  <SelectNative value={form.estado} onChange={(e) => update("estado", e.target.value)}>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                    <option value="perdido">Perdido (Ex Cliente)</option>
+                  </SelectNative>
+                </Field>
+              )}
               <Field label="Tipo de persona">
                 <SelectNative value={form.tipo_persona} onChange={(e) => update("tipo_persona", e.target.value)}>
                   <option value="fisica">Física</option>

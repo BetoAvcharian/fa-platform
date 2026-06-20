@@ -63,11 +63,10 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <MiniStat label="AUM" value={formatUSD(aumTotal)} />
         <MiniStat label="Potencial" value={formatUSD(cliente.potencial_usd ?? 0)} />
         <MiniStat label="Cuentas" value={String((cuentas ?? []).length)} />
-        <MiniStat label="Etapa pipeline" value={cliente.pipeline_etapa.replace("_", " ")} />
       </div>
 
       <Tabs defaultValue="perfil">
