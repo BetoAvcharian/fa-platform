@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SignupPage() {
-  const router = useRouter();
   const supabase = createClient();
-  const [paso, setPaso] = useState<"datos" | "codigo">("datos");
+  const [enviado, setEnviado] = useState(false);
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [codigo, setCodigo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +24,10 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nombre, apellido } },
+      options: {
+        data: { nombre, apellido },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
     });
 
     setLoading(false);
@@ -35,23 +35,7 @@ export default function SignupPage() {
       setError(error.message);
       return;
     }
-    setPaso("codigo");
-  }
-
-  async function handleVerificar(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: "signup" });
-
-    setLoading(false);
-    if (error) {
-      setError("Código incorrecto o vencido.");
-      return;
-    }
-    router.push("/dashboard");
-    router.refresh();
+    setEnviado(true);
   }
 
   return (
@@ -65,7 +49,7 @@ export default function SignupPage() {
           <p className="text-sm text-sidebar-foreground/60">FA Platform</p>
         </div>
 
-        {paso === "datos" && (
+        {!enviado ? (
           <form onSubmit={handleSignup} className="space-y-3 rounded-lg border border-white/10 bg-card p-6">
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
@@ -93,26 +77,13 @@ export default function SignupPage() {
               ¿Ya tenés cuenta? <Link href="/login" className="text-accent hover:underline">Ingresá</Link>
             </p>
           </form>
-        )}
-
-        {paso === "codigo" && (
-          <form onSubmit={handleVerificar} className="space-y-3 rounded-lg border border-white/10 bg-card p-6">
-            <p className="text-sm text-muted-foreground">
-              Te enviamos un código de 6 dígitos a <strong>{email}</strong>. Ingresalo abajo para activar tu cuenta.
+        ) : (
+          <div className="space-y-3 rounded-lg border border-white/10 bg-card p-6 text-center">
+            <p className="text-sm">
+              Te enviamos un mail a <strong>{email}</strong>. Abrilo y hacé click en el link de confirmación para activar tu cuenta.
             </p>
-            <Input
-              required
-              maxLength={6}
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-              placeholder="123456"
-              className="text-center text-lg tracking-widest"
-            />
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Verificando..." : "Verificar y entrar"}
-            </Button>
-          </form>
+            <Link href="/login" className="text-sm text-accent hover:underline">Volver al login</Link>
+          </div>
         )}
       </div>
     </div>
