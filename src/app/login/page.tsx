@@ -34,9 +34,9 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-foreground font-semibold">
-            FA
+            TIT
           </div>
-          <h1 className="text-lg font-semibold text-sidebar-foreground">FA Platform</h1>
+          <h1 className="text-lg font-semibold text-sidebar-foreground">TIT CRM</h1>
           <p className="text-sm text-sidebar-foreground/60">Wealth Management CRM</p>
         </div>
 

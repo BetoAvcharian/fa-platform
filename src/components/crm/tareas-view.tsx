@@ -57,8 +57,7 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
 
   return (
     <Tabs defaultValue="lista">
-      <div className="flex items-center justify-between">
-        <TabsList>
+      <div className="flex flex-wrap items-center justify-between gap-2">
           <TabsTrigger value="lista">Lista</TabsTrigger>
           <TabsTrigger value="calendario">Calendario</TabsTrigger>
         </TabsList>

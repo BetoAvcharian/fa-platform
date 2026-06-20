@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "FA Platform — Wealth Management CRM",
+  title: "TIT CRM — Wealth Management",
   description: "Plataforma de gestión para Financial Advisors y equipos de Wealth Management",
 };
 
