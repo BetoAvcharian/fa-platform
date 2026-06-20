@@ -85,6 +85,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               <Field label="Documento" value={cliente.documento} />
               <Field label="Fecha de nacimiento" value={cliente.fecha_nacimiento} />
               <Field label="Último contacto" value={cliente.fecha_ultimo_contacto} />
+              <Field label="Referenciado por" value={cliente.referenciado_por} />
               <div className="col-span-2">
                 <Field label="Notas" value={cliente.notas} />
               </div>
@@ -94,17 +95,16 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="cuentas">
           <Table>
-            <THead><TR><TH>Número</TH><TH>Comitente</TH><TH>Tipo</TH><TH>Estado</TH></TR></THead>
+            <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Estado</TH></TR></THead>
             <TBody>
               {(cuentas ?? []).map((c) => (
                 <TR key={c.id}>
                   <TD className="tabular">{c.numero_cuenta}</TD>
-                  <TD className="tabular">{c.comitente ?? "—"}</TD>
                   <TD>{c.tipo_cuenta ?? "—"}</TD>
                   <TD><Badge variant={c.estado_cuenta === "activa" ? "success" : "default"}>{c.estado_cuenta}</Badge></TD>
                 </TR>
               ))}
-              {(cuentas ?? []).length === 0 && <TR><TD colSpan={4} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+              {(cuentas ?? []).length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
             </TBody>
           </Table>
         </TabsContent>

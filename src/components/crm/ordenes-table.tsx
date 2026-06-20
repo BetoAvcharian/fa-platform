@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectNative } from "@/components/ui/select-native";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD } from "@/lib/utils";
 import { ESTADOS_ORDEN, MONEDAS, type LicitacionOrden, type LicitacionEstadoOrden, type MonedaTipo } from "@/lib/types";
@@ -17,10 +18,17 @@ type OrdenRow = LicitacionOrden & { cliente_nombre?: string };
 interface ClienteOption { id: string; nombre: string; apellido: string | null }
 
 const ESTADO_TONE: Record<LicitacionEstadoOrden, "default" | "success" | "warning" | "danger" | "accent"> = {
-  tentativo: "default",
+  tentativo: "warning",
   confirmada: "success",
   cargada: "accent",
   cancelada: "danger",
+};
+
+const ESTADO_BG: Record<LicitacionEstadoOrden, string> = {
+  tentativo: "bg-warning/10",
+  confirmada: "bg-success/10",
+  cargada: "bg-accent/10",
+  cancelada: "bg-danger/5 opacity-60",
 };
 
 export function OrdenesTable({
@@ -38,6 +46,7 @@ export function OrdenesTable({
   const supabase = createClient();
   const [nueva, setNueva] = useState({ cliente_id: "", monto: "", moneda: monedaBase, comentario: "" });
   const [guardando, setGuardando] = useState(false);
+  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
   async function agregarOrden() {
     if (!nueva.cliente_id || !nueva.monto) {
@@ -76,6 +85,18 @@ export function OrdenesTable({
     router.refresh();
   }
 
+  const ordenesFiltradas = useMemo(() => {
+    if (filtroEstado === "todos") return ordenes;
+    return ordenes.filter((o) => o.estado === filtroEstado);
+  }, [ordenes, filtroEstado]);
+
+  const totalConfirmadoCargado = ordenes
+    .filter((o) => o.estado === "confirmada" || o.estado === "cargada")
+    .reduce((sum, o) => sum + Number(o.monto), 0);
+  const totalTentativo = ordenes
+    .filter((o) => o.estado === "tentativo")
+    .reduce((sum, o) => sum + Number(o.monto), 0);
+
   const totalPorMoneda = ordenes.reduce<Record<string, number>>((acc, o) => {
     acc[o.moneda] = (acc[o.moneda] ?? 0) + Number(o.monto);
     return acc;
@@ -83,13 +104,36 @@ export function OrdenesTable({
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total Confirmado + Cargado</p>
+            <p className="mt-1 text-xl font-semibold text-success">{formatUSD(totalConfirmadoCargado)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total Tentativo</p>
+            <p className="mt-1 text-xl font-semibold text-warning">{formatUSD(totalTentativo)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Filtrar por estado:</span>
+        <SelectNative value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="h-8 w-40">
+          <option value="todos">Todos</option>
+          {ESTADOS_ORDEN.map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
+        </SelectNative>
+      </div>
+
       <Table>
         <THead>
           <TR><TH>Cliente</TH><TH>Monto</TH><TH>Moneda</TH><TH>Estado</TH><TH>Comentario</TH><TH></TH></TR>
         </THead>
         <TBody>
-          {ordenes.map((o) => (
-            <TR key={o.id}>
+          {ordenesFiltradas.map((o) => (
+            <TR key={o.id} className={ESTADO_BG[o.estado]}>
               <TD>{o.cliente_nombre}</TD>
               <TD className="tabular">{formatUSD(o.monto)}</TD>
               <TD>{o.moneda}</TD>
@@ -145,8 +189,8 @@ export function OrdenesTable({
             </TD>
           </TR>
 
-          {ordenes.length === 0 && (
-            <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">Sin órdenes todavía — agregá la primera arriba.</TD></TR>
+          {ordenesFiltradas.length === 0 && (
+            <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">Sin órdenes con ese filtro.</TD></TR>
           )}
         </TBody>
       </Table>

@@ -57,6 +57,7 @@ export interface Cliente {
   ingresos_anuales_usd: number | null;
   actividad_declarada: string | null;
   banco_referencia: string | null;
+  referenciado_por: string | null;
   created_at: string;
   updated_at: string;
 }

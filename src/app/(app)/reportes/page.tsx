@@ -42,9 +42,10 @@ export default async function ReportesPage() {
       comisionesSinCliente += Number(com.monto);
       return;
     }
-    const clienteId = [...comitentesPorCliente.entries()].find(([, set]) => set.has(com.comitente))?.[0];
-    if (clienteId) {
-      comisionPorCliente.set(clienteId, (comisionPorCliente.get(clienteId) ?? 0) + Number(com.monto));
+    // "comitente" en comisiones se matchea contra numero_cuenta de la cuenta
+    const cuenta = (cuentas ?? []).find((cu) => cu.numero_cuenta === com.comitente);
+    if (cuenta) {
+      comisionPorCliente.set(cuenta.cliente_id, (comisionPorCliente.get(cuenta.cliente_id) ?? 0) + Number(com.monto));
     }
   });
 

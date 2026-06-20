@@ -31,6 +31,7 @@ const initialState = {
   profesion: "",
   potencial_usd: "",
   notas: "",
+  referenciado_por: "",
   // domicilio
   domicilio_calle: "",
   domicilio_numero: "",
@@ -86,6 +87,7 @@ export function NuevoClienteDialog() {
       profesion: form.profesion || null,
       potencial_usd: form.potencial_usd ? Number(form.potencial_usd) : 0,
       notas: form.notas || null,
+      referenciado_por: form.referenciado_por || null,
       domicilio_calle: form.domicilio_calle || null,
       domicilio_numero: form.domicilio_numero || null,
       domicilio_piso: form.domicilio_piso || null,
@@ -187,6 +189,9 @@ export function NuevoClienteDialog() {
               </Field>
               <Field label="Potencial USD">
                 <Input type="number" value={form.potencial_usd} onChange={(e) => update("potencial_usd", e.target.value)} />
+              </Field>
+              <Field label="Referenciado por">
+                <Input value={form.referenciado_por} onChange={(e) => update("referenciado_por", e.target.value)} placeholder="Nombre de quien lo recomendó" />
               </Field>
               <div className="col-span-2">
                 <Field label="Notas">
