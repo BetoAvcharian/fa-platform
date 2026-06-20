@@ -21,11 +21,13 @@ interface FilaCliente {
   potencial_usd: number;
   referenciado_por: string;
   notas: string;
+  comitentes: string[];
 }
 
 const COLUMNAS_TEMPLATE = [
   "Tipo", "Nombre", "Apellido", "Documento", "CuitCuil", "Email", "Telefono",
   "FechaNacimiento", "PotencialUSD", "ReferenciadoPor", "Notas",
+  "Comitente1", "Comitente2", "Comitente3",
 ];
 
 function normalizar(s: string) {
@@ -41,7 +43,7 @@ export function ImportadorClientes() {
   function descargarTemplate() {
     const ws = XLSX.utils.aoa_to_sheet([
       COLUMNAS_TEMPLATE,
-      ["prospecto", "Juan", "Pérez", "30111222", "20301112223", "juan@email.com", "+54 9 11 1234-5678", "1985-04-12", "150000", "Carlos Gómez", "Contactado en evento UTN"],
+      ["prospecto", "Juan", "Pérez", "30111222", "20301112223", "juan@email.com", "+54 9 11 1234-5678", "1985-04-12", "150000", "Carlos Gómez", "Contactado en evento UTN", "12345", "", ""],
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Clientes");
@@ -61,7 +63,7 @@ export function ImportadorClientes() {
       const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
 
       const json: FilaCliente[] = rawRows.map((row) => {
-        const out: any = { tipo: "prospecto" };
+        const out: any = { tipo: "prospecto", comitentes: [] as string[] };
         for (const key of Object.keys(row)) {
           const norm = normalizar(key);
           if (norm.includes("tipo")) out.tipo = normalizar(row[key]).includes("cliente") ? "cliente" : "prospecto";
@@ -75,6 +77,11 @@ export function ImportadorClientes() {
           else if (norm.includes("potencial")) out.potencial_usd = Number(row[key]) || 0;
           else if (norm.includes("referenciado") || norm.includes("referido")) out.referenciado_por = row[key];
           else if (norm.includes("nota")) out.notas = row[key];
+          else if (norm.includes("comitente") || norm.includes("cuenta")) {
+            if (row[key] !== "" && row[key] !== undefined && row[key] !== null) {
+              out.comitentes.push(String(row[key]));
+            }
+          }
         }
         return out;
       });
@@ -108,15 +115,34 @@ export function ImportadorClientes() {
       estado: "activo",
     }));
 
-    const { error } = await supabase.from("clientes").insert(registros);
+    const { data: clientesCreados, error } = await supabase.from("clientes").insert(registros).select("id");
     setGuardando(false);
 
     if (error) {
       toast.error("Error al guardar: " + error.message);
       return;
     }
+
+    // crear las cuentas (comitentes) vinculadas a cada cliente recién creado
+    const cuentasARegistrar: { cliente_id: string; numero_cuenta: string; estado_cuenta: string }[] = [];
+    (clientesCreados ?? []).forEach((c: any, i: number) => {
+      const comitentes = filas[i]?.comitentes ?? [];
+      comitentes.forEach((numero) => {
+        cuentasARegistrar.push({ cliente_id: c.id, numero_cuenta: numero, estado_cuenta: "activa" });
+      });
+    });
+
+    if (cuentasARegistrar.length > 0) {
+      const { error: errorCuentas } = await supabase.from("cuentas").insert(cuentasARegistrar);
+      if (errorCuentas) {
+        toast.warning("Clientes creados, pero hubo un error cargando comitentes: " + errorCuentas.message);
+        setGuardado(true);
+        return;
+      }
+    }
+
     setGuardado(true);
-    toast.success(`${registros.length} clientes cargados`);
+    toast.success(`${registros.length} clientes cargados, ${cuentasARegistrar.length} comitentes vinculados`);
   }
 
   return (
@@ -125,7 +151,9 @@ export function ImportadorClientes() {
         <CardHeader><CardTitle>Carga masiva de clientes</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Descargá la plantilla, completala con tus clientes/prospectos, y subila. No hace falta llenar todas las columnas, solo Nombre es obligatorio.
+            Descargá la plantilla, completala con tus clientes/prospectos, y subila. Solo Nombre es obligatorio.
+            Las columnas <code className="text-xs">Comitente1</code>, <code className="text-xs">Comitente2</code>, <code className="text-xs">Comitente3</code> son opcionales —
+            si las completás, se crea automáticamente una cuenta vinculada al cliente por cada una.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={descargarTemplate}>
@@ -145,7 +173,7 @@ export function ImportadorClientes() {
           <CardHeader><CardTitle>Vista previa ({filas.length} filas)</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Table>
-              <THead><TR><TH>Tipo</TH><TH>Nombre</TH><TH>Email</TH><TH>Teléfono</TH><TH>Potencial</TH></TR></THead>
+              <THead><TR><TH>Tipo</TH><TH>Nombre</TH><TH>Email</TH><TH>Teléfono</TH><TH>Potencial</TH><TH>Comitentes</TH></TR></THead>
               <TBody>
                 {filas.slice(0, 20).map((f, i) => (
                   <TR key={i}>
@@ -154,6 +182,7 @@ export function ImportadorClientes() {
                     <TD>{f.email || "—"}</TD>
                     <TD>{f.telefono || "—"}</TD>
                     <TD className="tabular">{f.potencial_usd || 0}</TD>
+                    <TD className="tabular">{f.comitentes.length > 0 ? f.comitentes.join(", ") : "—"}</TD>
                   </TR>
                 ))}
               </TBody>
