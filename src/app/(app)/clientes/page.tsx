@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClientesTable } from "@/components/crm/clientes-table";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 
 export default async function ClientesPage() {
   const supabase = await createClient();
@@ -23,9 +22,7 @@ export default async function ClientesPage() {
           <h1 className="text-xl font-semibold">Clientes</h1>
           <p className="text-sm text-muted-foreground">CRM de clientes y prospectos</p>
         </div>
-        <Button size="sm">
-          <Plus className="h-4 w-4" /> Nuevo cliente
-        </Button>
+        <NuevoClienteDialog />
       </div>
       <ClientesTable clientes={rows} />
     </div>

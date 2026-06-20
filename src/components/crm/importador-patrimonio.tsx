@@ -32,11 +32,32 @@ export function ImportadorPatrimonio() {
       const data = evt.target?.result;
       const workbook = XLSX.read(data, { type: "binary" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json<FilaPatrimonio>(sheet);
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
 
-      const validas = json.filter((f) => f.NumeroCuenta && !isNaN(Number(f.AUM)));
+      // normaliza encabezados: sin espacios, sin tildes, minúsculas
+      function normalizar(s: string) {
+        return s
+          .toString()
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+      }
+
+      const json: FilaPatrimonio[] = rawRows.map((row) => {
+        const out: any = {};
+        for (const key of Object.keys(row)) {
+          const norm = normalizar(key);
+          if (norm.includes("cuenta") || norm.includes("comitente")) out.NumeroCuenta = row[key];
+          else if (norm === "aum" || norm.includes("patrimonio")) out.AUM = row[key];
+          else if (norm === "cash" || norm.includes("disponible")) out.Cash = row[key];
+        }
+        return out;
+      });
+
+      const validas = json.filter((f) => f.NumeroCuenta && f.NumeroCuenta !== "" && !isNaN(Number(f.AUM)) && f.AUM !== undefined);
       if (validas.length !== json.length) {
-        toast.warning(`Se omitieron ${json.length - validas.length} filas inválidas (sin NumeroCuenta o AUM)`);
+        toast.warning(`Se omitieron ${json.length - validas.length} filas inválidas (sin cuenta o sin AUM numérico)`);
       }
       setFilas(validas);
     };
@@ -73,7 +94,8 @@ export function ImportadorPatrimonio() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Formato esperado: columnas <code className="text-xs">NumeroCuenta</code>, <code className="text-xs">AUM</code>, <code className="text-xs">Cash</code>.
+            Columnas esperadas (no importa mayúsculas/tildes): algo como <code className="text-xs">NumeroCuenta</code> o <code className="text-xs">Comitente</code>,
+            <code className="text-xs"> AUM</code>, <code className="text-xs">Cash</code>.
             Cada carga se guarda como un nuevo punto histórico — nunca se sobrescribe lo anterior.
           </p>
           <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-sm hover:bg-muted">

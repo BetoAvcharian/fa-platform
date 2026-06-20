@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,10 @@ export default function LoginPage() {
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? "Ingresando..." : "Ingresar"}
           </Button>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <Link href="/signup" className="text-accent hover:underline">Crear cuenta</Link>
+            <Link href="/forgot-password" className="text-accent hover:underline">Olvidé mi contraseña</Link>
+          </div>
         </form>
       </div>
     </div>

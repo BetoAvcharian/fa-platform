@@ -39,14 +39,78 @@ export interface Cliente {
   fecha_ultimo_contacto: string | null;
   pipeline_etapa: PipelineEtapa;
   notas: string | null;
+  tipo_persona: "fisica" | "juridica" | null;
+  cuit_cuil: string | null;
+  nacionalidad: string | null;
+  estado_civil: string | null;
+  profesion: string | null;
+  domicilio_calle: string | null;
+  domicilio_numero: string | null;
+  domicilio_piso: string | null;
+  domicilio_ciudad: string | null;
+  domicilio_provincia: string | null;
+  domicilio_pais: string | null;
+  domicilio_cp: string | null;
+  email_alternativo: string | null;
+  telefono_alternativo: string | null;
+  pep: boolean | null;
+  ingresos_anuales_usd: number | null;
+  actividad_declarada: string | null;
+  banco_referencia: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type LicitacionEstadoOrden = "tentativo" | "confirmada" | "cancelada" | "cargada";
+export type MonedaTipo = "USD" | "USDC" | "PESOS";
+
+export interface Licitacion {
+  id: string;
+  owner_id: string;
+  nombre: string;
+  instrumento: string | null;
+  fecha_licitacion: string | null;
+  fecha_liquidacion: string | null;
+  moneda_base: MonedaTipo;
+  created_at: string;
+}
+
+export interface LicitacionOrden {
+  id: string;
+  licitacion_id: string;
+  cliente_id: string;
+  monto: number;
+  moneda: MonedaTipo;
+  estado: LicitacionEstadoOrden;
+  comentario: string | null;
+  created_at: string;
+}
+
+export interface Comision {
+  id: string;
+  periodo_mes: number;
+  periodo_anio: number;
+  comitente: string | null;
+  owner_id: string;
+  concepto: string | null;
+  monto: number;
+  created_at: string;
+}
+
+export const ESTADOS_ORDEN: { key: LicitacionEstadoOrden; label: string }[] = [
+  { key: "tentativo", label: "Tentativo" },
+  { key: "confirmada", label: "Confirmada" },
+  { key: "cancelada", label: "Cancelada" },
+  { key: "cargada", label: "Cargada" },
+];
+
+export const MONEDAS: MonedaTipo[] = ["USD", "USDC", "PESOS"];
 
 export interface Cuenta {
   id: string;
   cliente_id: string;
   numero_cuenta: string;
+  comitente: string | null;
   tipo_cuenta: string | null;
   estado_cuenta: "activa" | "inactiva" | "cerrada";
 }

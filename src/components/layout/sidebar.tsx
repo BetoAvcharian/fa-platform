@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
-  KanbanSquare,
+  Gavel,
   CheckSquare,
   BarChart3,
   Upload,
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/licitaciones", label: "Licitaciones", icon: Gavel },
   { href: "/tareas", label: "Tareas", icon: CheckSquare },
   { href: "/oportunidades", label: "Oportunidades", icon: Bell },
   { href: "/reportes", label: "Reportes", icon: BarChart3 },

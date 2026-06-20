@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD, formatNumberAR } from "@/lib/utils";
+import { DocumentosCliente } from "@/components/crm/documentos-cliente";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -73,6 +74,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="interacciones">Interacciones</TabsTrigger>
           <TabsTrigger value="patrimonio">Patrimonio</TabsTrigger>
           <TabsTrigger value="tareas">Tareas</TabsTrigger>
+          <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
         </TabsList>
 
@@ -92,16 +94,17 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="cuentas">
           <Table>
-            <THead><TR><TH>Número</TH><TH>Tipo</TH><TH>Estado</TH></TR></THead>
+            <THead><TR><TH>Número</TH><TH>Comitente</TH><TH>Tipo</TH><TH>Estado</TH></TR></THead>
             <TBody>
               {(cuentas ?? []).map((c) => (
                 <TR key={c.id}>
                   <TD className="tabular">{c.numero_cuenta}</TD>
+                  <TD className="tabular">{c.comitente ?? "—"}</TD>
                   <TD>{c.tipo_cuenta ?? "—"}</TD>
                   <TD><Badge variant={c.estado_cuenta === "activa" ? "success" : "default"}>{c.estado_cuenta}</Badge></TD>
                 </TR>
               ))}
-              {(cuentas ?? []).length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+              {(cuentas ?? []).length === 0 && <TR><TD colSpan={4} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
             </TBody>
           </Table>
         </TabsContent>
@@ -177,6 +180,10 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               {(tareas ?? []).length === 0 && <TR><TD colSpan={4} className="text-center text-muted-foreground py-6">Sin tareas asociadas.</TD></TR>}
             </TBody>
           </Table>
+        </TabsContent>
+
+        <TabsContent value="documentos">
+          <DocumentosCliente clienteId={cliente.id} />
         </TabsContent>
 
         <TabsContent value="oportunidades">
