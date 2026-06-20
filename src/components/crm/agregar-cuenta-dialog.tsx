@@ -27,16 +27,30 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
       return;
     }
     setGuardando(true);
-    const { error } = await supabase.from("cuentas").insert({
-      cliente_id: clienteId,
-      numero_cuenta: numeroCuenta,
-      tipo_cuenta: tipoCuenta || null,
-      plaza,
-      estado_cuenta: "activa",
-    });
+    const { data: cuentaCreada, error } = await supabase
+      .from("cuentas")
+      .insert({
+        numero_cuenta: numeroCuenta,
+        tipo_cuenta: tipoCuenta || null,
+        plaza,
+        estado_cuenta: "activa",
+      })
+      .select("id")
+      .single();
+
+    if (error || !cuentaCreada) {
+      setGuardando(false);
+      toast.error("Error: " + (error?.message ?? "no se pudo crear la cuenta"));
+      return;
+    }
+
+    const { error: errorTitular } = await supabase
+      .from("cuenta_titulares")
+      .insert({ cuenta_id: cuentaCreada.id, cliente_id: clienteId, rol_titular: "titular" });
+
     setGuardando(false);
-    if (error) {
-      toast.error("Error: " + error.message);
+    if (errorTitular) {
+      toast.error("Error vinculando titular: " + errorTitular.message);
       return;
     }
     toast.success("Cuenta agregada");

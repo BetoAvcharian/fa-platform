@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,22 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const { data: cliente } = await supabase.from("clientes").select("*").eq("id", id).single();
   if (!cliente) notFound();
 
-  const { data: cuentas } = await supabase.from("cuentas").select("*").eq("cliente_id", id);
+  const { data: cuentaTitulares } = await supabase
+    .from("cuenta_titulares")
+    .select("rol_titular, cuentas:cuenta_id (*)")
+    .eq("cliente_id", id);
+  const cuentas = (cuentaTitulares ?? []).map((ct: any) => ({ ...ct.cuentas, rol_titular: ct.rol_titular }));
   const numerosCuenta = (cuentas ?? []).map((c) => c.numero_cuenta);
+
+  // otros titulares de las mismas cuentas (para mostrar "cotitular con...")
+  const cuentaIds = (cuentas ?? []).map((c: any) => c.id);
+  const { data: otrosTitulares } = cuentaIds.length
+    ? await supabase
+        .from("cuenta_titulares")
+        .select("cuenta_id, clientes:cliente_id (id, nombre, apellido)")
+        .in("cuenta_id", cuentaIds)
+        .neq("cliente_id", id)
+    : { data: [] as any[] };
 
   const { data: kycRows } = await supabase
     .from("kyc")
@@ -122,17 +137,27 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               <AgregarCuentaDialog clienteId={cliente.id} />
             </div>
             <Table>
-              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH></TR></THead>
+              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH><TH>Cotitular</TH></TR></THead>
               <TBody>
-                {(cuentas ?? []).map((c) => (
-                  <TR key={c.id}>
-                    <TD className="tabular">{c.numero_cuenta}</TD>
-                    <TD>{c.tipo_cuenta ?? "—"}</TD>
-                    <TD>{PLAZAS.find((p) => p.key === c.plaza)?.label ?? c.plaza}</TD>
-                    <TD><Badge variant={c.estado_cuenta === "activa" ? "success" : "default"}>{c.estado_cuenta}</Badge></TD>
-                  </TR>
-                ))}
-                {(cuentas ?? []).length === 0 && <TR><TD colSpan={4} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+                {(cuentas ?? []).map((cu: any) => {
+                  const cotitular = (otrosTitulares ?? []).find((t: any) => t.cuenta_id === cu.id);
+                  return (
+                    <TR key={cu.id}>
+                      <TD className="tabular">{cu.numero_cuenta}</TD>
+                      <TD>{cu.tipo_cuenta ?? "—"}</TD>
+                      <TD>{PLAZAS.find((p) => p.key === cu.plaza)?.label ?? cu.plaza}</TD>
+                      <TD><Badge variant={cu.estado_cuenta === "activa" ? "success" : "default"}>{cu.estado_cuenta}</Badge></TD>
+                      <TD>
+                        {cotitular ? (
+                          <Link href={`/clientes/${cotitular.clientes.id}`} className="text-accent hover:underline">
+                            {cotitular.clientes.nombre} {cotitular.clientes.apellido}
+                          </Link>
+                        ) : "—"}
+                      </TD>
+                    </TR>
+                  );
+                })}
+                {(cuentas ?? []).length === 0 && <TR><TD colSpan={5} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
               </TBody>
             </Table>
           </div>

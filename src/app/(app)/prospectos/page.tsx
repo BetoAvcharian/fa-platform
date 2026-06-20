@@ -9,6 +9,7 @@ export default async function ProspectosPage() {
     .from("clientes")
     .select("*, usuarios:owner_id (nombre, apellido)")
     .eq("tipo", "prospecto")
+    .neq("estado", "perdido")
     .order("created_at", { ascending: false });
 
   const rows = (prospectos ?? []).map((c: any) => ({

@@ -11,8 +11,11 @@ export default async function ReportesPage() {
 
   const { data: clientes } = await supabase.from("clientes").select("*");
   const { data: cuentas } = await supabase.from("cuentas").select("*");
+  const { data: titulares } = await supabase.from("cuenta_titulares").select("*");
   const { data: patrimonio } = await supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false });
   const { data: comisiones } = await supabase.from("comisiones").select("*");
+
+  const cuentaPorId = new Map((cuentas ?? []).map((c) => [c.id, c]));
 
   const activos = (clientes ?? []).filter((c) => c.tipo === "cliente" && c.estado === "activo");
   const prospectos = (clientes ?? []).filter((c) => c.tipo === "prospecto");
@@ -23,17 +26,17 @@ export default async function ReportesPage() {
     if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
   });
 
-  // AUM y comisión por cliente
+  // AUM por cliente — pasando por la tabla de titulares (una cuenta puede sumar a 2 clientes si es mancomunada)
   const aumPorCliente = new Map<string, number>();
-  const comitentesPorCliente = new Map<string, Set<string>>();
-  (cuentas ?? []).forEach((cuenta) => {
+  const cuentasPorCliente = new Map<string, Set<string>>(); // numero_cuenta visibles por cliente (para comisiones)
+  (titulares ?? []).forEach((t) => {
+    const cuenta = cuentaPorId.get(t.cuenta_id);
+    if (!cuenta) return;
     const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
-    aumPorCliente.set(cuenta.cliente_id, (aumPorCliente.get(cuenta.cliente_id) ?? 0) + aum);
-    if (cuenta.comitente) {
-      const set = comitentesPorCliente.get(cuenta.cliente_id) ?? new Set<string>();
-      set.add(cuenta.comitente);
-      comitentesPorCliente.set(cuenta.cliente_id, set);
-    }
+    aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum);
+    const set = cuentasPorCliente.get(t.cliente_id) ?? new Set<string>();
+    set.add(cuenta.numero_cuenta);
+    cuentasPorCliente.set(t.cliente_id, set);
   });
 
   const comisionPorCliente = new Map<string, number>();
@@ -46,7 +49,10 @@ export default async function ReportesPage() {
     // "comitente" en comisiones se matchea contra numero_cuenta de la cuenta
     const cuenta = (cuentas ?? []).find((cu) => cu.numero_cuenta === com.comitente);
     if (cuenta) {
-      comisionPorCliente.set(cuenta.cliente_id, (comisionPorCliente.get(cuenta.cliente_id) ?? 0) + Number(com.monto));
+      const titularesDeEstaCuenta = (titulares ?? []).filter((t) => t.cuenta_id === cuenta.id);
+      titularesDeEstaCuenta.forEach((t) => {
+        comisionPorCliente.set(t.cliente_id, (comisionPorCliente.get(t.cliente_id) ?? 0) + Number(com.monto));
+      });
     }
   });
 

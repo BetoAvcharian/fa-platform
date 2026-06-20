@@ -112,12 +112,17 @@ export type PlazaTipo = "local" | "bci" | "stonex" | "pershing";
 
 export interface Cuenta {
   id: string;
-  cliente_id: string;
   numero_cuenta: string;
   comitente: string | null;
   tipo_cuenta: string | null;
   estado_cuenta: "activa" | "inactiva" | "cerrada";
   plaza: PlazaTipo;
+}
+
+export interface CuentaTitular {
+  cuenta_id: string;
+  cliente_id: string;
+  rol_titular: string;
 }
 
 export interface HistorialCliente {

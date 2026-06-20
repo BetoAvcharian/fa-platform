@@ -154,26 +154,31 @@ export function ImportadorClientes() {
     }
 
     // crear las cuentas (comitentes) vinculadas a cada cliente recién creado
-    const cuentasARegistrar: { cliente_id: string; numero_cuenta: string; estado_cuenta: string }[] = [];
+    const cuentasParaInsertar: { numero_cuenta: string; estado_cuenta: string; clienteIdTemp: string }[] = [];
     (clientesCreados ?? []).forEach((c: any, i: number) => {
       const comitentes = filasAImportar[i]?.comitentes ?? [];
       comitentes.forEach((numero) => {
-        cuentasARegistrar.push({ cliente_id: c.id, numero_cuenta: numero, estado_cuenta: "activa" });
+        cuentasParaInsertar.push({ numero_cuenta: numero, estado_cuenta: "activa", clienteIdTemp: c.id });
       });
     });
 
-    if (cuentasARegistrar.length > 0) {
-      const { error: errorCuentas } = await supabase.from("cuentas").insert(cuentasARegistrar);
-      if (errorCuentas) {
-        toast.warning("Clientes creados, pero hubo un error cargando comitentes: " + errorCuentas.message);
-        setGuardado(true);
-        return;
-      }
+    let totalCuentas = 0;
+    for (const c of cuentasParaInsertar) {
+      const { data: cuentaCreada, error: errorCuenta } = await supabase
+        .from("cuentas")
+        .insert({ numero_cuenta: c.numero_cuenta, estado_cuenta: c.estado_cuenta })
+        .select("id")
+        .single();
+      if (errorCuenta || !cuentaCreada) continue;
+      const { error: errorTitular } = await supabase
+        .from("cuenta_titulares")
+        .insert({ cuenta_id: cuentaCreada.id, cliente_id: c.clienteIdTemp, rol_titular: "titular" });
+      if (!errorTitular) totalCuentas++;
     }
 
     setGuardado(true);
     const omitidos = filas.length - filasAImportar.length;
-    toast.success(`${registros.length} clientes cargados, ${cuentasARegistrar.length} comitentes vinculados${omitidos > 0 ? ` (${omitidos} duplicados omitidos)` : ""}`);
+    toast.success(`${registros.length} clientes cargados, ${totalCuentas} comitentes vinculados${omitidos > 0 ? ` (${omitidos} duplicados omitidos)` : ""}`);
   }
 
   return (

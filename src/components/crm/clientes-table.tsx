@@ -11,7 +11,7 @@ import { formatUSD, diasDesde } from "@/lib/utils";
 import type { Cliente } from "@/lib/types";
 import { Download } from "lucide-react";
 
-type ClienteRow = Cliente & { owner_nombre?: string };
+type ClienteRow = Cliente & { owner_nombre?: string; aum?: number };
 
 const ESTADO_TONE = { activo: "success", inactivo: "default", perdido: "danger" } as const;
 
@@ -38,6 +38,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
       Owner: c.owner_nombre ?? "",
       Email: c.email ?? "",
       Telefono: c.telefono ?? "",
+      AUM: c.aum ?? 0,
       PotencialUSD: c.potencial_usd ?? 0,
       UltimoContacto: c.fecha_ultimo_contacto ?? "",
     }));
@@ -88,6 +89,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
             <TH>Tipo</TH>
             <TH>Estado</TH>
             <TH>Owner</TH>
+            <TH>AUM</TH>
             <TH>Potencial</TH>
             <TH>Último contacto</TH>
           </TR>
@@ -107,6 +109,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
                   <Badge variant={ESTADO_TONE[c.estado]}>{c.estado}</Badge>
                 </TD>
                 <TD className="text-muted-foreground">{c.owner_nombre ?? "—"}</TD>
+                <TD className="tabular">{formatUSD(c.aum ?? 0)}</TD>
                 <TD className="tabular">{formatUSD(c.potencial_usd ?? 0)}</TD>
                 <TD>
                   {dias === null ? (
@@ -122,7 +125,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
           })}
           {filtrados.length === 0 && (
             <TR>
-              <TD colSpan={6} className="text-center text-muted-foreground py-8">
+              <TD colSpan={7} className="text-center text-muted-foreground py-8">
                 No se encontraron clientes con esos filtros.
               </TD>
             </TR>

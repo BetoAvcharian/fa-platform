@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Loader2, CheckCircle2, Download } from "lucide-react";
+import { Loader2, CheckCircle2, Download, XCircle, ArrowUpCircle } from "lucide-react";
 import type { Cliente } from "@/lib/types";
 
 type ProspectoRow = Cliente & { owner_nombre?: string };
@@ -35,6 +35,22 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
   async function toggleTrabajando(id: string, actual: boolean) {
     const { error } = await supabase.from("clientes").update({ prospecto_trabajando: !actual }).eq("id", id);
     if (!error) router.refresh();
+  }
+
+  async function descartar(id: string) {
+    const { error } = await supabase.from("clientes").update({ estado: "perdido" }).eq("id", id);
+    if (error) {
+      return;
+    }
+    router.refresh();
+  }
+
+  async function avanzarACliente(id: string) {
+    const { error } = await supabase.from("clientes").update({ tipo: "cliente", estado: "activo" }).eq("id", id);
+    if (error) {
+      return;
+    }
+    router.refresh();
   }
 
   function exportarExcel() {
@@ -93,9 +109,17 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
                   </Badge>
                 </TD>
                 <TD>
-                  <Button size="sm" variant="outline" onClick={() => toggleTrabajando(p.id, !!p.prospecto_trabajando)}>
-                    {p.prospecto_trabajando ? <><CheckCircle2 className="h-3.5 w-3.5" /> Marcar sin trabajar</> : <><Loader2 className="h-3.5 w-3.5" /> Marcar trabajando</>}
-                  </Button>
+                  <div className="flex flex-wrap gap-1">
+                    <Button size="sm" variant="outline" onClick={() => toggleTrabajando(p.id, !!p.prospecto_trabajando)}>
+                      {p.prospecto_trabajando ? <><CheckCircle2 className="h-3.5 w-3.5" /> Sin trabajar</> : <><Loader2 className="h-3.5 w-3.5" /> Trabajando</>}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => descartar(p.id)}>
+                      <XCircle className="h-3.5 w-3.5 text-danger" /> Descartar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => avanzarACliente(p.id)}>
+                      <ArrowUpCircle className="h-3.5 w-3.5 text-success" /> A Cliente
+                    </Button>
+                  </div>
                 </TD>
               </TR>
             );
