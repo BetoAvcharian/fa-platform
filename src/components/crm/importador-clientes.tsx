@@ -36,6 +36,7 @@ function normalizar(s: string) {
 
 export function ImportadorClientes() {
   const [filas, setFilas] = useState<FilaCliente[]>([]);
+  const [duplicados, setDuplicados] = useState<Set<number>>(new Set());
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const supabase = createClient();
@@ -56,7 +57,7 @@ export function ImportadorClientes() {
     setGuardado(false);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const data = evt.target?.result;
       const workbook = XLSX.read(data, { type: "binary" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -91,15 +92,44 @@ export function ImportadorClientes() {
         toast.warning(`Se omitieron ${json.length - validas.length} filas sin nombre`);
       }
       setFilas(validas);
+      await detectarDuplicados(validas);
     };
     reader.readAsBinaryString(file);
+  }
+
+  async function detectarDuplicados(filasActuales: FilaCliente[]) {
+    const { data: existentes } = await supabase.from("clientes").select("documento, email");
+    const documentosExistentes = new Set((existentes ?? []).map((e) => (e.documento ?? "").trim().toLowerCase()).filter(Boolean));
+    const emailsExistentes = new Set((existentes ?? []).map((e) => (e.email ?? "").trim().toLowerCase()).filter(Boolean));
+
+    const vistosDoc = new Set<string>();
+    const vistosEmail = new Set<string>();
+    const dups = new Set<number>();
+
+    filasActuales.forEach((f, i) => {
+      const doc = (f.documento ?? "").trim().toLowerCase();
+      const email = (f.email ?? "").trim().toLowerCase();
+      const esDup =
+        (doc && (documentosExistentes.has(doc) || vistosDoc.has(doc))) ||
+        (email && (emailsExistentes.has(email) || vistosEmail.has(email)));
+      if (esDup) dups.add(i);
+      if (doc) vistosDoc.add(doc);
+      if (email) vistosEmail.add(email);
+    });
+
+    setDuplicados(dups);
+    if (dups.size > 0) {
+      toast.warning(`${dups.size} fila(s) parecen duplicadas (mismo documento o email ya cargado) — no se van a importar salvo que las edites`);
+    }
   }
 
   async function confirmarImportacion() {
     setGuardando(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    const registros = filas.map((f) => ({
+    const filasAImportar = filas.filter((_, i) => !duplicados.has(i));
+
+    const registros = filasAImportar.map((f) => ({
       owner_id: user?.id,
       tipo: f.tipo || "prospecto",
       nombre: f.nombre,
@@ -126,7 +156,7 @@ export function ImportadorClientes() {
     // crear las cuentas (comitentes) vinculadas a cada cliente recién creado
     const cuentasARegistrar: { cliente_id: string; numero_cuenta: string; estado_cuenta: string }[] = [];
     (clientesCreados ?? []).forEach((c: any, i: number) => {
-      const comitentes = filas[i]?.comitentes ?? [];
+      const comitentes = filasAImportar[i]?.comitentes ?? [];
       comitentes.forEach((numero) => {
         cuentasARegistrar.push({ cliente_id: c.id, numero_cuenta: numero, estado_cuenta: "activa" });
       });
@@ -142,7 +172,8 @@ export function ImportadorClientes() {
     }
 
     setGuardado(true);
-    toast.success(`${registros.length} clientes cargados, ${cuentasARegistrar.length} comitentes vinculados`);
+    const omitidos = filas.length - filasAImportar.length;
+    toast.success(`${registros.length} clientes cargados, ${cuentasARegistrar.length} comitentes vinculados${omitidos > 0 ? ` (${omitidos} duplicados omitidos)` : ""}`);
   }
 
   return (
@@ -173,21 +204,27 @@ export function ImportadorClientes() {
           <CardHeader><CardTitle>Vista previa ({filas.length} filas)</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Table>
-              <THead><TR><TH>Tipo</TH><TH>Nombre</TH><TH>Email</TH><TH>Teléfono</TH><TH>Potencial</TH><TH>Comitentes</TH></TR></THead>
+              <THead><TR><TH>Tipo</TH><TH>Nombre</TH><TH>Email</TH><TH>Teléfono</TH><TH>Potencial</TH><TH>Comitentes</TH><TH></TH></TR></THead>
               <TBody>
                 {filas.slice(0, 20).map((f, i) => (
-                  <TR key={i}>
+                  <TR key={i} className={duplicados.has(i) ? "bg-danger/5" : ""}>
                     <TD className="capitalize">{f.tipo}</TD>
                     <TD>{f.nombre} {f.apellido}</TD>
                     <TD>{f.email || "—"}</TD>
                     <TD>{f.telefono || "—"}</TD>
                     <TD className="tabular">{f.potencial_usd || 0}</TD>
                     <TD className="tabular">{f.comitentes.length > 0 ? f.comitentes.join(", ") : "—"}</TD>
+                    <TD>{duplicados.has(i) && <span className="text-xs text-danger">Duplicado</span>}</TD>
                   </TR>
                 ))}
               </TBody>
             </Table>
             {filas.length > 20 && <p className="text-xs text-muted-foreground">...y {filas.length - 20} filas más</p>}
+            {duplicados.size > 0 && (
+              <p className="text-xs text-danger">
+                {duplicados.size} fila(s) marcadas como duplicado no se van a importar (mismo documento o email que uno ya cargado).
+              </p>
+            )}
             <Button onClick={confirmarImportacion} disabled={guardando || guardado}>
               {guardado ? <><CheckCircle2 className="h-4 w-4" /> Importado</> : guardando ? "Guardando..." : "Confirmar importación"}
             </Button>

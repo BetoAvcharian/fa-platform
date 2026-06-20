@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD, diasDesde } from "@/lib/utils";
 import type { Cliente } from "@/lib/types";
+import { Download } from "lucide-react";
 
 type ClienteRow = Cliente & { owner_nombre?: string };
 
@@ -26,6 +29,23 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
       return matchSearch && matchTipo && matchEstado;
     });
   }, [clientes, search, tipo, estado]);
+
+  function exportarExcel() {
+    const datos = filtrados.map((c) => ({
+      Nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(),
+      Tipo: c.tipo,
+      Estado: c.estado,
+      Owner: c.owner_nombre ?? "",
+      Email: c.email ?? "",
+      Telefono: c.telefono ?? "",
+      PotencialUSD: c.potencial_usd ?? 0,
+      UltimoContacto: c.fecha_ultimo_contacto ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    XLSX.writeFile(wb, "clientes.xlsx");
+  }
 
   return (
     <div className="space-y-4">
@@ -55,7 +75,10 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
           <option value="inactivo">Inactivo</option>
           <option value="perdido">Perdido</option>
         </select>
-        <span className="ml-auto text-xs text-muted-foreground">{filtrados.length} resultados</span>
+        <Button variant="outline" size="sm" onClick={exportarExcel} className="ml-auto">
+          <Download className="h-3.5 w-3.5" /> Excel
+        </Button>
+        <span className="text-xs text-muted-foreground">{filtrados.length} resultados</span>
       </div>
 
       <Table>

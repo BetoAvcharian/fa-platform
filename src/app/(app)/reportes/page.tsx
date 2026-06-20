@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD } from "@/lib/utils";
+import { ExportExcelButton } from "@/components/crm/export-excel-button";
 
 export default async function ReportesPage() {
   const supabase = await createClient();
@@ -64,6 +65,15 @@ export default async function ReportesPage() {
     .sort((a, b) => b.comision - a.comision)
     .slice(0, 10);
 
+  // AUM Local vs Offshore (según plaza de cada cuenta)
+  let aumLocalTotal = 0;
+  let aumOffshoreTotal = 0;
+  (cuentas ?? []).forEach((cuenta) => {
+    const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
+    if (cuenta.plaza === "local") aumLocalTotal += aum;
+    else aumOffshoreTotal += aum;
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -77,9 +87,20 @@ export default async function ReportesPage() {
         <Card><CardHeader><CardTitle>Comisiones sin cliente (premios)</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(comisionesSinCliente)}</CardContent></Card>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card><CardHeader><CardTitle>AUM Local (Comitente Argentina)</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(aumLocalTotal)}</CardContent></Card>
+        <Card><CardHeader><CardTitle>AUM Offshore (BCI / StoneX / Pershing)</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(aumOffshoreTotal)}</CardContent></Card>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
-          <CardHeader><CardTitle>Top clientes por AUM</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Top clientes por AUM</CardTitle>
+            <ExportExcelButton
+              data={topAum.map((c) => ({ Cliente: `${c.nombre} ${c.apellido ?? ""}`, AUM: c.aum }))}
+              filename="top_clientes_aum.xlsx"
+            />
+          </CardHeader>
           <CardContent className="p-0">
             <Table>
               <THead><TR><TH>Cliente</TH><TH>AUM</TH></TR></THead>
@@ -94,7 +115,13 @@ export default async function ReportesPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Top clientes por potencial</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Top clientes por potencial</CardTitle>
+            <ExportExcelButton
+              data={topPotencial.map((c) => ({ Cliente: `${c.nombre} ${c.apellido ?? ""}`, PotencialUSD: c.potencial_usd ?? 0 }))}
+              filename="top_clientes_potencial.xlsx"
+            />
+          </CardHeader>
           <CardContent className="p-0">
             <Table>
               <THead><TR><TH>Cliente</TH><TH>Potencial</TH></TR></THead>
@@ -108,7 +135,13 @@ export default async function ReportesPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Top clientes por comisión generada</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Top clientes por comisión generada</CardTitle>
+            <ExportExcelButton
+              data={topComision.map((c) => ({ Cliente: `${c.nombre} ${c.apellido ?? ""}`, ComisionUSD: c.comision }))}
+              filename="top_clientes_comision.xlsx"
+            />
+          </CardHeader>
           <CardContent className="p-0">
             <Table>
               <THead><TR><TH>Cliente</TH><TH>Comisión</TH></TR></THead>

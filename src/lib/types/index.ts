@@ -108,6 +108,8 @@ export const ESTADOS_ORDEN: { key: LicitacionEstadoOrden; label: string }[] = [
 
 export const MONEDAS: MonedaTipo[] = ["USD", "USDC", "PESOS"];
 
+export type PlazaTipo = "local" | "bci" | "stonex" | "pershing";
+
 export interface Cuenta {
   id: string;
   cliente_id: string;
@@ -115,7 +117,25 @@ export interface Cuenta {
   comitente: string | null;
   tipo_cuenta: string | null;
   estado_cuenta: "activa" | "inactiva" | "cerrada";
+  plaza: PlazaTipo;
 }
+
+export interface HistorialCliente {
+  id: string;
+  cliente_id: string;
+  campo: string;
+  valor_anterior: string | null;
+  valor_nuevo: string | null;
+  usuario_id: string | null;
+  fecha: string;
+}
+
+export const PLAZAS: { key: PlazaTipo; label: string }[] = [
+  { key: "local", label: "Local (Comitente Argentina)" },
+  { key: "bci", label: "BCI / Balanz Internacional" },
+  { key: "stonex", label: "StoneX" },
+  { key: "pershing", label: "Pershing" },
+];
 
 export interface Kyc {
   id: string;

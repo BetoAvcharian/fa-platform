@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Download } from "lucide-react";
 import type { Cliente } from "@/lib/types";
 
 type ProspectoRow = Cliente & { owner_nombre?: string };
@@ -36,6 +37,21 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
     if (!error) router.refresh();
   }
 
+  function exportarExcel() {
+    const datos = filtrados.map((p) => ({
+      Nombre: `${p.nombre} ${p.apellido ?? ""}`.trim(),
+      Email: p.email ?? "",
+      Telefono: p.telefono ?? "",
+      PotencialUSD: p.potencial_usd ?? 0,
+      UltimoContacto: p.fecha_ultimo_contacto ?? "",
+      Trabajando: p.prospecto_trabajando ? "Sí" : "No",
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Prospectos");
+    XLSX.writeFile(wb, "prospectos.xlsx");
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -49,7 +65,10 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
           <option value="trabajando">Trabajando</option>
           <option value="sin_trabajar">Sin trabajar</option>
         </select>
-        <span className="ml-auto text-xs text-muted-foreground">{filtrados.length} resultados</span>
+        <Button variant="outline" size="sm" onClick={exportarExcel} className="ml-auto">
+          <Download className="h-3.5 w-3.5" /> Excel
+        </Button>
+        <span className="text-xs text-muted-foreground">{filtrados.length} resultados</span>
       </div>
 
       <Table>

@@ -8,6 +8,9 @@ import { formatUSD, formatNumberAR } from "@/lib/utils";
 import { DocumentosCliente } from "@/components/crm/documentos-cliente";
 import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 import { BackButton } from "@/components/ui/back-button";
+import { WhatsappButton } from "@/components/crm/whatsapp-button";
+import { AgregarCuentaDialog } from "@/components/crm/agregar-cuenta-dialog";
+import { PLAZAS } from "@/lib/types";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,6 +51,19 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
     .reduce((sum, p) => sum + Number(p.aum), 0);
 
+  const cuentasLocales = new Set((cuentas ?? []).filter((c) => c.plaza === "local").map((c) => c.numero_cuenta));
+  const aumLocal = (patrimonio ?? [])
+    .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
+    .filter((p) => cuentasLocales.has(p.numero_cuenta))
+    .reduce((sum, p) => sum + Number(p.aum), 0);
+  const aumOffshore = aumTotal - aumLocal;
+
+  const { data: historial } = await supabase
+    .from("historial_cliente")
+    .select("*, usuarios:usuario_id (nombre, apellido)")
+    .eq("cliente_id", id)
+    .order("fecha", { ascending: false });
+
   return (
     <div className="space-y-6">
       <BackButton label="Volver a clientes" />
@@ -59,12 +75,15 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         <div className="flex items-center gap-2">
           <Badge variant={cliente.tipo === "cliente" ? "accent" : "default"} className="capitalize">{cliente.tipo}</Badge>
           <Badge variant={cliente.estado === "activo" ? "success" : "default"} className="capitalize">{cliente.estado}</Badge>
+          <WhatsappButton telefono={cliente.telefono} />
           <NuevoClienteDialog cliente={cliente} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <MiniStat label="AUM" value={formatUSD(aumTotal)} />
+        <MiniStat label="AUM Local" value={formatUSD(aumLocal)} />
+        <MiniStat label="AUM Offshore" value={formatUSD(aumOffshore)} />
         <MiniStat label="Potencial" value={formatUSD(cliente.potencial_usd ?? 0)} />
         <MiniStat label="Cuentas" value={String((cuentas ?? []).length)} />
       </div>
@@ -78,6 +97,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="patrimonio">Patrimonio</TabsTrigger>
           <TabsTrigger value="tareas">Tareas</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
+          <TabsTrigger value="historial">Historial</TabsTrigger>
           <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
         </TabsList>
 
@@ -97,19 +117,25 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </TabsContent>
 
         <TabsContent value="cuentas">
-          <Table>
-            <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Estado</TH></TR></THead>
-            <TBody>
-              {(cuentas ?? []).map((c) => (
-                <TR key={c.id}>
-                  <TD className="tabular">{c.numero_cuenta}</TD>
-                  <TD>{c.tipo_cuenta ?? "—"}</TD>
-                  <TD><Badge variant={c.estado_cuenta === "activa" ? "success" : "default"}>{c.estado_cuenta}</Badge></TD>
-                </TR>
-              ))}
-              {(cuentas ?? []).length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
-            </TBody>
-          </Table>
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <AgregarCuentaDialog clienteId={cliente.id} />
+            </div>
+            <Table>
+              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH></TR></THead>
+              <TBody>
+                {(cuentas ?? []).map((c) => (
+                  <TR key={c.id}>
+                    <TD className="tabular">{c.numero_cuenta}</TD>
+                    <TD>{c.tipo_cuenta ?? "—"}</TD>
+                    <TD>{PLAZAS.find((p) => p.key === c.plaza)?.label ?? c.plaza}</TD>
+                    <TD><Badge variant={c.estado_cuenta === "activa" ? "success" : "default"}>{c.estado_cuenta}</Badge></TD>
+                  </TR>
+                ))}
+                {(cuentas ?? []).length === 0 && <TR><TD colSpan={4} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+              </TBody>
+            </Table>
+          </div>
         </TabsContent>
 
         <TabsContent value="kyc">
@@ -187,6 +213,24 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="documentos">
           <DocumentosCliente clienteId={cliente.id} />
+        </TabsContent>
+
+        <TabsContent value="historial">
+          <Table>
+            <THead><TR><TH>Fecha</TH><TH>Campo</TH><TH>Antes</TH><TH>Después</TH><TH>Usuario</TH></TR></THead>
+            <TBody>
+              {(historial ?? []).map((h: any) => (
+                <TR key={h.id}>
+                  <TD>{new Date(h.fecha).toLocaleString("es-AR")}</TD>
+                  <TD className="capitalize">{h.campo}</TD>
+                  <TD className="capitalize">{h.valor_anterior ?? "—"}</TD>
+                  <TD className="capitalize">{h.valor_nuevo ?? "—"}</TD>
+                  <TD>{h.usuarios ? `${h.usuarios.nombre} ${h.usuarios.apellido}` : "—"}</TD>
+                </TR>
+              ))}
+              {(historial ?? []).length === 0 && <TR><TD colSpan={5} className="text-center text-muted-foreground py-6">Sin cambios de tipo o estado registrados todavía.</TD></TR>}
+            </TBody>
+          </Table>
         </TabsContent>
 
         <TabsContent value="oportunidades">
