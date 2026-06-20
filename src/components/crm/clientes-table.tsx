@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -22,11 +22,25 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const search = searchParams.get("q") ?? "";
   const tipo = searchParams.get("tipo") ?? "todos";
   const estado = searchParams.get("estado") ?? "todos";
   const sortBy = (searchParams.get("sort") as SortKey) ?? "nombre";
   const sortDir = (searchParams.get("dir") as "asc" | "desc") ?? "asc";
+
+  // búsqueda: estado local instantáneo + sincronizado a la URL con debounce
+  // (así no se vuelve a pedir la página en cada letra tipeada)
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (search) params.set("q", search);
+      else params.delete("q");
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   function updateParams(updates: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -112,7 +126,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
         <Input
           placeholder="Buscar por nombre..."
           value={search}
-          onChange={(e) => updateParams({ q: e.target.value })}
+          onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
         <select

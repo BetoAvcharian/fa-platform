@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as XLSX from "xlsx";
@@ -22,10 +22,23 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const search = searchParams.get("q") ?? "";
+  const search0 = searchParams.get("q") ?? "";
   const filtro = (searchParams.get("filtro") as "todos" | "trabajando" | "sin_trabajar") ?? "todos";
   const sortBy = (searchParams.get("sort") as SortKey) ?? "nombre";
   const sortDir = (searchParams.get("dir") as "asc" | "desc") ?? "asc";
+
+  const [search, setSearch] = useState(search0);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (search) params.set("q", search);
+      else params.delete("q");
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const [paraDescartar, setParaDescartar] = useState<{ id: string; nombre: string } | null>(null);
   const [confirmacion, setConfirmacion] = useState("");
@@ -118,7 +131,7 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Input placeholder="Buscar por nombre..." value={search} onChange={(e) => updateParams({ q: e.target.value })} className="max-w-xs" />
+        <Input placeholder="Buscar por nombre..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
         <select
           value={filtro}
           onChange={(e) => updateParams({ filtro: e.target.value })}
