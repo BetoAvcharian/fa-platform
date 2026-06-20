@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OrdenesTable } from "@/components/crm/ordenes-table";
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function LicitacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,6 +27,7 @@ export default async function LicitacionDetailPage({ params }: { params: Promise
 
   return (
     <div className="space-y-6">
+      <BackButton label="Volver a licitaciones" />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold">{licitacion.nombre}</h1>

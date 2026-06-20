@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatUSD, diasDesde } from "@/lib/utils";
 import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -77,9 +78,9 @@ export default async function DashboardPage() {
             <CardTitle>Clientes sin contacto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Row label="30-60 días" value={sinContacto30.length} tone="warning" />
-            <Row label="60-90 días" value={sinContacto60.length} tone="warning" />
-            <Row label="+90 días" value={sinContacto90.length} tone="danger" />
+            <SinContactoRow label="30-60 días" clientes={sinContacto30} tone="warning" />
+            <SinContactoRow label="60-90 días" clientes={sinContacto60} tone="warning" />
+            <SinContactoRow label="+90 días" clientes={sinContacto90} tone="danger" />
           </CardContent>
         </Card>
       </div>

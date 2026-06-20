@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD, formatNumberAR } from "@/lib/utils";
 import { DocumentosCliente } from "@/components/crm/documentos-cliente";
+import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,14 +50,16 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
+      <BackButton label="Volver a clientes" />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold">{cliente.nombre} {cliente.apellido}</h1>
           <p className="text-sm text-muted-foreground">{cliente.email ?? "Sin email"} · {cliente.telefono ?? "Sin teléfono"}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Badge variant={cliente.tipo === "cliente" ? "accent" : "default"} className="capitalize">{cliente.tipo}</Badge>
           <Badge variant={cliente.estado === "activo" ? "success" : "default"} className="capitalize">{cliente.estado}</Badge>
+          <NuevoClienteDialog cliente={cliente} />
         </div>
       </div>
 

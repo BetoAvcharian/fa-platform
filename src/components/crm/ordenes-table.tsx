@@ -11,8 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD } from "@/lib/utils";
 import { ESTADOS_ORDEN, MONEDAS, type LicitacionOrden, type LicitacionEstadoOrden, type MonedaTipo } from "@/lib/types";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 type OrdenRow = LicitacionOrden & { cliente_nombre?: string };
 interface ClienteOption { id: string; nombre: string; apellido: string | null }
@@ -85,6 +86,20 @@ export function OrdenesTable({
     router.refresh();
   }
 
+  function exportarExcel() {
+    const datos = ordenes.map((o) => ({
+      Cliente: o.cliente_nombre,
+      Monto: o.monto,
+      Moneda: o.moneda,
+      Estado: ESTADOS_ORDEN.find((e) => e.key === o.estado)?.label ?? o.estado,
+      Comentario: o.comentario ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ordenes");
+    XLSX.writeFile(wb, "ordenes_licitacion.xlsx");
+  }
+
   const ordenesFiltradas = useMemo(() => {
     if (filtroEstado === "todos") return ordenes;
     return ordenes.filter((o) => o.estado === filtroEstado);
@@ -119,12 +134,17 @@ export function OrdenesTable({
         </Card>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Filtrar por estado:</span>
-        <SelectNative value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="h-8 w-40">
-          <option value="todos">Todos</option>
-          {ESTADOS_ORDEN.map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
-        </SelectNative>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Filtrar por estado:</span>
+          <SelectNative value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="h-8 w-40">
+            <option value="todos">Todos</option>
+            {ESTADOS_ORDEN.map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
+          </SelectNative>
+        </div>
+        <Button size="sm" variant="outline" onClick={exportarExcel} disabled={ordenes.length === 0}>
+          <Download className="h-3.5 w-3.5" /> Descargar Excel
+        </Button>
       </div>
 
       <Table>

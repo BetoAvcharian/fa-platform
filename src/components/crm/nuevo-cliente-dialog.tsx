@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectNative } from "@/components/ui/select-native";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import type { Cliente } from "@/lib/types";
 
 const initialState = {
   // datos básicos
@@ -47,9 +48,44 @@ const initialState = {
   banco_referencia: "",
 };
 
-export function NuevoClienteDialog() {
+function clienteToForm(cliente: Cliente): typeof initialState {
+  return {
+    tipo: cliente.tipo,
+    nombre: cliente.nombre,
+    apellido: cliente.apellido ?? "",
+    tipo_persona: cliente.tipo_persona ?? "fisica",
+    razon_social: cliente.razon_social ?? "",
+    documento: cliente.documento ?? "",
+    cuit_cuil: cliente.cuit_cuil ?? "",
+    email: cliente.email ?? "",
+    telefono: cliente.telefono ?? "",
+    email_alternativo: cliente.email_alternativo ?? "",
+    telefono_alternativo: cliente.telefono_alternativo ?? "",
+    fecha_nacimiento: cliente.fecha_nacimiento ?? "",
+    nacionalidad: cliente.nacionalidad ?? "",
+    estado_civil: cliente.estado_civil ?? "",
+    profesion: cliente.profesion ?? "",
+    potencial_usd: cliente.potencial_usd ? String(cliente.potencial_usd) : "",
+    notas: cliente.notas ?? "",
+    referenciado_por: cliente.referenciado_por ?? "",
+    domicilio_calle: cliente.domicilio_calle ?? "",
+    domicilio_numero: cliente.domicilio_numero ?? "",
+    domicilio_piso: cliente.domicilio_piso ?? "",
+    domicilio_ciudad: cliente.domicilio_ciudad ?? "",
+    domicilio_provincia: cliente.domicilio_provincia ?? "",
+    domicilio_pais: cliente.domicilio_pais ?? "Argentina",
+    domicilio_cp: cliente.domicilio_cp ?? "",
+    pep: cliente.pep ?? false,
+    ingresos_anuales_usd: cliente.ingresos_anuales_usd ? String(cliente.ingresos_anuales_usd) : "",
+    actividad_declarada: cliente.actividad_declarada ?? "",
+    banco_referencia: cliente.banco_referencia ?? "",
+  };
+}
+
+export function NuevoClienteDialog({ cliente }: { cliente?: Cliente }) {
+  const esEdicion = !!cliente;
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(initialState);
+  const [form, setForm] = useState(esEdicion ? clienteToForm(cliente!) : initialState);
   const [guardando, setGuardando] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -66,10 +102,7 @@ export function NuevoClienteDialog() {
     }
     setGuardando(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase.from("clientes").insert({
-      owner_id: user?.id,
+    const payload = {
       tipo: form.tipo,
       nombre: form.nombre,
       apellido: form.apellido || null,
@@ -99,18 +132,25 @@ export function NuevoClienteDialog() {
       ingresos_anuales_usd: form.ingresos_anuales_usd ? Number(form.ingresos_anuales_usd) : null,
       actividad_declarada: form.actividad_declarada || null,
       banco_referencia: form.banco_referencia || null,
-      estado: "activo",
-    });
+    };
+
+    let error;
+    if (esEdicion) {
+      ({ error } = await supabase.from("clientes").update(payload).eq("id", cliente!.id));
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      ({ error } = await supabase.from("clientes").insert({ ...payload, owner_id: user?.id, estado: "activo" }));
+    }
 
     setGuardando(false);
 
     if (error) {
-      toast.error("Error al crear cliente: " + error.message);
+      toast.error("Error al guardar: " + error.message);
       return;
     }
 
-    toast.success("Cliente creado");
-    setForm(initialState);
+    toast.success(esEdicion ? "Cliente actualizado" : "Cliente creado");
+    if (!esEdicion) setForm(initialState);
     setOpen(false);
     router.refresh();
   }
@@ -118,13 +158,15 @@ export function NuevoClienteDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" /> Nuevo cliente
-        </Button>
+        {esEdicion ? (
+          <Button size="sm" variant="outline"><Pencil className="h-4 w-4" /> Editar</Button>
+        ) : (
+          <Button size="sm"><Plus className="h-4 w-4" /> Nuevo cliente</Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nuevo cliente / prospecto</DialogTitle>
+          <DialogTitle>{esEdicion ? "Editar cliente" : "Nuevo cliente / prospecto"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
