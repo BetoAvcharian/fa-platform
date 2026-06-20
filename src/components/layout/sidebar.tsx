@@ -18,6 +18,7 @@ import {
   Sun,
   Menu,
   X,
+  UserCog,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +33,8 @@ const NAV = [
   { href: "/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/importador", label: "Importador", icon: Upload },
 ];
+
+const NAV_ADMIN = { href: "/usuarios", label: "Usuarios", icon: UserCog };
 
 export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -84,7 +87,7 @@ export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 px-2 overflow-y-auto">
-          {NAV.map((item) => {
+          {[...NAV, ...(rol === "admin" ? [NAV_ADMIN] : [])].map((item) => {
             const active = pathname.startsWith(item.href);
             return (
               <Link

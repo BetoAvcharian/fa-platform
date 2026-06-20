@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single();
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden md:flex-row">
       <Sidebar
         nombre={usuario ? `${usuario.nombre} ${usuario.apellido}` : user.email ?? ""}
         rol={usuario?.rol ?? "fa"}
