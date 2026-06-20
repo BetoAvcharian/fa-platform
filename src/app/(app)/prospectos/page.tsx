@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
 import { ProspectosTable } from "@/components/crm/prospectos-table";
 import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 
@@ -26,7 +27,9 @@ export default async function ProspectosPage() {
         </div>
         <NuevoClienteDialog tipoDefault="prospecto" />
       </div>
-      <ProspectosTable prospectos={rows} />
+      <Suspense fallback={null}>
+        <ProspectosTable prospectos={rows} />
+      </Suspense>
     </div>
   );
 }

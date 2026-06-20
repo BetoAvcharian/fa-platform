@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
 import { ClientesTable } from "@/components/crm/clientes-table";
 import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 
@@ -40,7 +41,9 @@ export default async function ClientesPage() {
         </div>
         <NuevoClienteDialog tipoDefault="cliente" />
       </div>
-      <ClientesTable clientes={rows} />
+      <Suspense fallback={null}>
+        <ClientesTable clientes={rows} />
+      </Suspense>
     </div>
   );
 }

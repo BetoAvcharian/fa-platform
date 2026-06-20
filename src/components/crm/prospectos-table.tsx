@@ -1,28 +1,52 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Loader2, CheckCircle2, Download, XCircle, ArrowUpCircle } from "lucide-react";
+import { Loader2, CheckCircle2, Download, XCircle, ArrowUpCircle, ArrowUp, ArrowDown } from "lucide-react";
 import type { Cliente } from "@/lib/types";
 
 type ProspectoRow = Cliente & { owner_nombre?: string };
+type SortKey = "nombre" | "potencial" | "contacto" | "trabajando";
 
 export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
-  const [search, setSearch] = useState("");
-  const [filtro, setFiltro] = useState<"todos" | "trabajando" | "sin_trabajar">("todos");
+
+  const search = searchParams.get("q") ?? "";
+  const filtro = (searchParams.get("filtro") as "todos" | "trabajando" | "sin_trabajar") ?? "todos";
+  const sortBy = (searchParams.get("sort") as SortKey) ?? "nombre";
+  const sortDir = (searchParams.get("dir") as "asc" | "desc") ?? "asc";
+
+  const [paraDescartar, setParaDescartar] = useState<{ id: string; nombre: string } | null>(null);
+  const [confirmacion, setConfirmacion] = useState("");
+  const [descartando, setDescartando] = useState(false);
+
+  function updateParams(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([k, v]) => {
+      if (v) params.set(k, v);
+      else params.delete(k);
+    });
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }
+
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) updateParams({ sort: key, dir: sortDir === "asc" ? "desc" : "asc" });
+    else updateParams({ sort: key, dir: "asc" });
+  }
 
   const filtrados = useMemo(() => {
-    return prospectos.filter((p) => {
+    let resultado = prospectos.filter((p) => {
       const matchSearch = `${p.nombre} ${p.apellido ?? ""}`.toLowerCase().includes(search.toLowerCase());
       const matchFiltro =
         filtro === "todos" ||
@@ -30,18 +54,41 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
         (filtro === "sin_trabajar" && !p.prospecto_trabajando);
       return matchSearch && matchFiltro;
     });
-  }, [prospectos, search, filtro]);
+
+    const getVal = (p: ProspectoRow): string | number => {
+      switch (sortBy) {
+        case "nombre": return `${p.nombre} ${p.apellido ?? ""}`.toLowerCase();
+        case "potencial": return p.potencial_usd ?? 0;
+        case "contacto": return diasDesde(p.fecha_ultimo_contacto) ?? -1;
+        case "trabajando": return p.prospecto_trabajando ? 1 : 0;
+        default: return "";
+      }
+    };
+
+    resultado = [...resultado].sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return resultado;
+  }, [prospectos, search, filtro, sortBy, sortDir]);
 
   async function toggleTrabajando(id: string, actual: boolean) {
     const { error } = await supabase.from("clientes").update({ prospecto_trabajando: !actual }).eq("id", id);
     if (!error) router.refresh();
   }
 
-  async function descartar(id: string) {
-    const { error } = await supabase.from("clientes").update({ estado: "perdido" }).eq("id", id);
+  async function confirmarDescarte() {
+    if (!paraDescartar) return;
+    setDescartando(true);
+    const { error } = await supabase.from("clientes").delete().eq("id", paraDescartar.id);
+    setDescartando(false);
     if (error) {
       return;
     }
+    setParaDescartar(null);
+    setConfirmacion("");
     router.refresh();
   }
 
@@ -71,10 +118,10 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Input placeholder="Buscar por nombre..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+        <Input placeholder="Buscar por nombre..." value={search} onChange={(e) => updateParams({ q: e.target.value })} className="max-w-xs" />
         <select
           value={filtro}
-          onChange={(e) => setFiltro(e.target.value as any)}
+          onChange={(e) => updateParams({ filtro: e.target.value })}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm"
         >
           <option value="todos">Todos</option>
@@ -89,7 +136,13 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
 
       <Table>
         <THead>
-          <TR><TH>Nombre</TH><TH>Potencial</TH><TH>Último contacto</TH><TH>Estado</TH><TH></TH></TR>
+          <TR>
+            <SortableTH label="Nombre" sortKey="nombre" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTH label="Potencial" sortKey="potencial" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTH label="Último contacto" sortKey="contacto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTH label="Estado" sortKey="trabajando" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+            <TH></TH>
+          </TR>
         </THead>
         <TBody>
           {filtrados.map((p) => {
@@ -113,7 +166,7 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
                     <Button size="sm" variant="outline" onClick={() => toggleTrabajando(p.id, !!p.prospecto_trabajando)}>
                       {p.prospecto_trabajando ? <><CheckCircle2 className="h-3.5 w-3.5" /> Sin trabajar</> : <><Loader2 className="h-3.5 w-3.5" /> Trabajando</>}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => descartar(p.id)}>
+                    <Button size="sm" variant="outline" onClick={() => setParaDescartar({ id: p.id, nombre: `${p.nombre} ${p.apellido ?? ""}` })}>
                       <XCircle className="h-3.5 w-3.5 text-danger" /> Descartar
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => avanzarACliente(p.id)}>
@@ -129,6 +182,38 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
           )}
         </TBody>
       </Table>
+
+      <Dialog open={!!paraDescartar} onOpenChange={(o) => { if (!o) { setParaDescartar(null); setConfirmacion(""); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Descartar a {paraDescartar?.nombre}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Esto borra el prospecto definitivamente, no se puede deshacer. Escribí <strong>ELIMINAR</strong> para confirmar.
+            </p>
+            <Input value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} placeholder="ELIMINAR" />
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
+              <Button variant="outline" onClick={() => { setParaDescartar(null); setConfirmacion(""); }}>Cancelar</Button>
+              <Button variant="destructive" disabled={confirmacion !== "ELIMINAR" || descartando} onClick={confirmarDescarte}>
+                {descartando ? "Borrando..." : "Descartar definitivamente"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function SortableTH({
+  label, sortKey, sortBy, sortDir, onSort,
+}: { label: string; sortKey: SortKey; sortBy: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void }) {
+  const active = sortBy === sortKey;
+  return (
+    <TH>
+      <button onClick={() => onSort(sortKey)} className="flex items-center gap-1 hover:text-foreground">
+        {label}
+        {active && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+      </button>
+    </TH>
   );
 }

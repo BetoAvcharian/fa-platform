@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,26 +10,71 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD, diasDesde } from "@/lib/utils";
 import type { Cliente } from "@/lib/types";
-import { Download } from "lucide-react";
+import { Download, ArrowUp, ArrowDown } from "lucide-react";
 
 type ClienteRow = Cliente & { owner_nombre?: string; aum?: number };
 
 const ESTADO_TONE = { activo: "success", inactivo: "default", perdido: "danger" } as const;
 
+type SortKey = "nombre" | "tipo" | "estado" | "owner" | "aum" | "potencial" | "contacto";
+
 export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
-  const [search, setSearch] = useState("");
-  const [tipo, setTipo] = useState<string>("todos");
-  const [estado, setEstado] = useState<string>("todos");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const search = searchParams.get("q") ?? "";
+  const tipo = searchParams.get("tipo") ?? "todos";
+  const estado = searchParams.get("estado") ?? "todos";
+  const sortBy = (searchParams.get("sort") as SortKey) ?? "nombre";
+  const sortDir = (searchParams.get("dir") as "asc" | "desc") ?? "asc";
+
+  function updateParams(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([k, v]) => {
+      if (v) params.set(k, v);
+      else params.delete(k);
+    });
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }
+
+  function toggleSort(key: SortKey) {
+    if (sortBy === key) {
+      updateParams({ sort: key, dir: sortDir === "asc" ? "desc" : "asc" });
+    } else {
+      updateParams({ sort: key, dir: "asc" });
+    }
+  }
 
   const filtrados = useMemo(() => {
-    return clientes.filter((c) => {
+    let resultado = clientes.filter((c) => {
       const nombreCompleto = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
       const matchSearch = nombreCompleto.includes(search.toLowerCase());
       const matchTipo = tipo === "todos" || c.tipo === tipo;
       const matchEstado = estado === "todos" || c.estado === estado;
       return matchSearch && matchTipo && matchEstado;
     });
-  }, [clientes, search, tipo, estado]);
+
+    const getVal = (c: ClienteRow): string | number => {
+      switch (sortBy) {
+        case "nombre": return `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
+        case "tipo": return c.tipo;
+        case "estado": return c.estado;
+        case "owner": return c.owner_nombre ?? "";
+        case "aum": return c.aum ?? 0;
+        case "potencial": return c.potencial_usd ?? 0;
+        case "contacto": return diasDesde(c.fecha_ultimo_contacto) ?? -1;
+        default: return "";
+      }
+    };
+
+    resultado = [...resultado].sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return resultado;
+  }, [clientes, search, tipo, estado, sortBy, sortDir]);
 
   function exportarExcel() {
     const datos = filtrados.map((c) => ({
@@ -48,18 +94,30 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
     XLSX.writeFile(wb, "clientes.xlsx");
   }
 
+  function SortableTH({ label, sortKey }: { label: string; sortKey: SortKey }) {
+    const active = sortBy === sortKey;
+    return (
+      <TH>
+        <button onClick={() => toggleSort(sortKey)} className="flex items-center gap-1 hover:text-foreground">
+          {label}
+          {active && (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+        </button>
+      </TH>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Buscar por nombre..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => updateParams({ q: e.target.value })}
           className="max-w-xs"
         />
         <select
           value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
+          onChange={(e) => updateParams({ tipo: e.target.value })}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm"
         >
           <option value="todos">Todos los tipos</option>
@@ -68,7 +126,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
         </select>
         <select
           value={estado}
-          onChange={(e) => setEstado(e.target.value)}
+          onChange={(e) => updateParams({ estado: e.target.value })}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm"
         >
           <option value="todos">Todos los estados</option>
@@ -85,13 +143,13 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
       <Table>
         <THead>
           <TR>
-            <TH>Nombre</TH>
-            <TH>Tipo</TH>
-            <TH>Estado</TH>
-            <TH>Owner</TH>
-            <TH>AUM</TH>
-            <TH>Potencial</TH>
-            <TH>Último contacto</TH>
+            <SortableTH label="Nombre" sortKey="nombre" />
+            <SortableTH label="Tipo" sortKey="tipo" />
+            <SortableTH label="Estado" sortKey="estado" />
+            <SortableTH label="Owner" sortKey="owner" />
+            <SortableTH label="AUM" sortKey="aum" />
+            <SortableTH label="Potencial" sortKey="potencial" />
+            <SortableTH label="Último contacto" sortKey="contacto" />
           </TR>
         </THead>
         <TBody>

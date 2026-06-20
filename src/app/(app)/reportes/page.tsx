@@ -18,7 +18,7 @@ export default async function ReportesPage() {
   const cuentaPorId = new Map((cuentas ?? []).map((c) => [c.id, c]));
 
   const activos = (clientes ?? []).filter((c) => c.tipo === "cliente" && c.estado === "activo");
-  const prospectos = (clientes ?? []).filter((c) => c.tipo === "prospecto");
+  const prospectos = (clientes ?? []).filter((c) => c.tipo === "prospecto" && c.estado !== "perdido");
 
   // AUM más reciente por número de cuenta
   const aumPorCuenta = new Map<string, number>();

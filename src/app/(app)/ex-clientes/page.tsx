@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
 import { ClientesTable } from "@/components/crm/clientes-table";
 
 export default async function ExClientesPage() {
@@ -24,7 +25,9 @@ export default async function ExClientesPage() {
           Clientes con estado "Perdido". Para mover uno acá, editá su ficha y cambiá el Estado a Perdido.
         </p>
       </div>
-      <ClientesTable clientes={rows} />
+      <Suspense fallback={null}>
+        <ClientesTable clientes={rows} />
+      </Suspense>
     </div>
   );
 }

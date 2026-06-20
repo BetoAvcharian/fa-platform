@@ -11,6 +11,7 @@ import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 import { BackButton } from "@/components/ui/back-button";
 import { WhatsappButton } from "@/components/crm/whatsapp-button";
 import { AgregarCuentaDialog } from "@/components/crm/agregar-cuenta-dialog";
+import { EliminarClienteDialog } from "@/components/crm/eliminar-cliente-dialog";
 import { PLAZAS } from "@/lib/types";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -73,6 +74,31 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     .reduce((sum, p) => sum + Number(p.aum), 0);
   const aumOffshore = aumTotal - aumLocal;
 
+  const aumPorCuentaIndividual = new Map<string, number>();
+  (patrimonio ?? []).forEach((p) => {
+    if (!aumPorCuentaIndividual.has(p.numero_cuenta)) aumPorCuentaIndividual.set(p.numero_cuenta, Number(p.aum));
+  });
+
+  const hoy = new Date();
+  let mesAnterior = hoy.getMonth(); // 0-indexed; mes pasado cerrado
+  let anioAnterior = hoy.getFullYear();
+  if (mesAnterior === 0) { mesAnterior = 12; anioAnterior -= 1; }
+
+  const { data: comisionesCuentas } = numerosCuenta.length
+    ? await supabase
+        .from("comisiones")
+        .select("*")
+        .in("comitente", numerosCuenta)
+        .eq("periodo_mes", mesAnterior)
+        .eq("periodo_anio", anioAnterior)
+    : { data: [] as any[] };
+
+  const comisionPorCuenta = new Map<string, number>();
+  (comisionesCuentas ?? []).forEach((com) => {
+    if (!com.comitente) return;
+    comisionPorCuenta.set(com.comitente, (comisionPorCuenta.get(com.comitente) ?? 0) + Number(com.monto));
+  });
+
   const { data: historial } = await supabase
     .from("historial_cliente")
     .select("*, usuarios:usuario_id (nombre, apellido)")
@@ -92,6 +118,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <Badge variant={cliente.estado === "activo" ? "success" : "default"} className="capitalize">{cliente.estado}</Badge>
           <WhatsappButton telefono={cliente.telefono} />
           <NuevoClienteDialog cliente={cliente} />
+          <EliminarClienteDialog clienteId={cliente.id} nombre={`${cliente.nombre} ${cliente.apellido ?? ""}`} />
         </div>
       </div>
 
@@ -137,7 +164,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               <AgregarCuentaDialog clienteId={cliente.id} />
             </div>
             <Table>
-              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH><TH>Cotitular</TH></TR></THead>
+              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH><TH>Saldo</TH><TH>Comisión mes pasado</TH><TH>Cotitular</TH></TR></THead>
               <TBody>
                 {(cuentas ?? []).map((cu: any) => {
                   const cotitular = (otrosTitulares ?? []).find((t: any) => t.cuenta_id === cu.id);
@@ -147,6 +174,8 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                       <TD>{cu.tipo_cuenta ?? "—"}</TD>
                       <TD>{PLAZAS.find((p) => p.key === cu.plaza)?.label ?? cu.plaza}</TD>
                       <TD><Badge variant={cu.estado_cuenta === "activa" ? "success" : "default"}>{cu.estado_cuenta}</Badge></TD>
+                      <TD className="tabular">{formatUSD(aumPorCuentaIndividual.get(cu.numero_cuenta) ?? 0)}</TD>
+                      <TD className="tabular">{formatUSD(comisionPorCuenta.get(cu.numero_cuenta) ?? 0)}</TD>
                       <TD>
                         {cotitular ? (
                           <Link href={`/clientes/${cotitular.clientes.id}`} className="text-accent hover:underline">
@@ -157,7 +186,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                     </TR>
                   );
                 })}
-                {(cuentas ?? []).length === 0 && <TR><TD colSpan={5} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+                {(cuentas ?? []).length === 0 && <TR><TD colSpan={7} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
               </TBody>
             </Table>
           </div>

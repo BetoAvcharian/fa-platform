@@ -285,7 +285,7 @@ export function NuevoClienteDialog({ cliente, tipoDefault }: { cliente?: Cliente
 
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={guardando}>{guardando ? "Guardando..." : "Crear cliente"}</Button>
+            <Button type="submit" disabled={guardando}>{guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear cliente"}</Button>
           </div>
         </form>
       </DialogContent>

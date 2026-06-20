@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   UserCog,
+  NotebookPen,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/ex-clientes", label: "Ex Clientes", icon: UserX },
   { href: "/licitaciones", label: "Licitaciones", icon: Gavel },
   { href: "/tareas", label: "Tareas", icon: CheckSquare },
+  { href: "/resumen-dia", label: "Resumen del día", icon: NotebookPen },
   { href: "/oportunidades", label: "Oportunidades", icon: Bell },
   { href: "/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/importador", label: "Importador", icon: Upload },
