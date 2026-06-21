@@ -5,49 +5,40 @@ import { ComisionesBrowser, type FilaComisionResumen } from "@/components/crm/co
 export default async function ComisionesPage() {
   const supabase = await createClient();
 
-  const comisiones = await fetchAllRows((from, to) => supabase.from("comisiones").select("*").range(from, to));
-  const cuentas = await fetchAllRows((from, to) => supabase.from("cuentas").select("id, numero_cuenta").range(from, to));
-  const titulares = await fetchAllRows((from, to) =>
-    supabase.from("cuenta_titulares").select("cuenta_id, clientes:cliente_id (nombre, apellido)").range(from, to)
+  // Estas tres consultas ya vienen sumadas desde la base (vistas SQL),
+  // nunca traen las miles de operaciones individuales a la app.
+  // Igual las pedimos paginadas por si algún día el resumen mismo supera 1000 filas.
+  const porClienteMes = await fetchAllRows((from, to) =>
+    supabase.from("v_comisiones_por_cliente_mes").select("cliente_id, periodo_mes, periodo_anio, total, operaciones").range(from, to)
+  );
+  const sinCliente = await fetchAllRows((from, to) =>
+    supabase.from("v_comisiones_sin_cliente_por_mes").select("periodo_mes, periodo_anio, total, operaciones").range(from, to)
+  );
+  const clientesInfo = await fetchAllRows((from, to) =>
+    supabase.from("clientes").select("id, nombre, apellido").range(from, to)
   );
 
-  const cuentaIdPorNumero = new Map(cuentas.map((c) => [c.numero_cuenta, c.id]));
-  const nombresPorCuentaId = new Map<string, string[]>();
-  titulares.forEach((t: any) => {
-    const nombre = t.clientes ? `${t.clientes.nombre} ${t.clientes.apellido ?? ""}`.trim() : null;
-    if (!nombre) return;
-    const lista = nombresPorCuentaId.get(t.cuenta_id) ?? [];
-    lista.push(nombre);
-    nombresPorCuentaId.set(t.cuenta_id, lista);
-  });
+  const nombrePorClienteId = new Map(clientesInfo.map((c) => [c.id, `${c.nombre} ${c.apellido ?? ""}`.trim()]));
 
-  // agrupar por Cliente + Mes/Año (no por operación individual)
-  const resumen = new Map<string, FilaComisionResumen>();
-  comisiones.forEach((c) => {
-    let cliente_nombre = "— (premio sin cliente)";
-    if (c.comitente) {
-      const cuentaId = cuentaIdPorNumero.get(c.comitente);
-      const nombres = cuentaId ? nombresPorCuentaId.get(cuentaId) : null;
-      cliente_nombre = nombres && nombres.length > 0 ? nombres.join(" / ") : "(comitente sin cliente asociado)";
-    }
-    const key = `${cliente_nombre}__${c.periodo_anio}-${c.periodo_mes}`;
-    const existente = resumen.get(key);
-    if (existente) {
-      existente.total += Number(c.monto);
-      existente.operaciones += 1;
-    } else {
-      resumen.set(key, {
-        id: key,
-        periodo_mes: c.periodo_mes,
-        periodo_anio: c.periodo_anio,
-        cliente_nombre,
-        total: Number(c.monto),
-        operaciones: 1,
-      });
-    }
-  });
+  const filas: FilaComisionResumen[] = [
+    ...porClienteMes.map((c) => ({
+      id: `${c.cliente_id}-${c.periodo_anio}-${c.periodo_mes}`,
+      periodo_mes: c.periodo_mes,
+      periodo_anio: c.periodo_anio,
+      cliente_nombre: nombrePorClienteId.get(c.cliente_id) ?? "(cliente no encontrado)",
+      total: Number(c.total),
+      operaciones: c.operaciones,
+    })),
+    ...sinCliente.map((c) => ({
+      id: `sin-cliente-${c.periodo_anio}-${c.periodo_mes}`,
+      periodo_mes: c.periodo_mes,
+      periodo_anio: c.periodo_anio,
+      cliente_nombre: "— (premio sin cliente)",
+      total: Number(c.total),
+      operaciones: c.operaciones,
+    })),
+  ];
 
-  const filas = Array.from(resumen.values());
   const anios = Array.from(new Set(filas.map((f) => f.periodo_anio))).sort((a, b) => b - a);
 
   return (

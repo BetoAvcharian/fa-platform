@@ -24,8 +24,8 @@ export default async function DashboardPage() {
     .from("licitaciones")
     .select("*")
     .order("fecha_licitacion", { ascending: true });
-  const comisiones = await fetchAllRows((from, to) =>
-    supabase.from("comisiones").select("periodo_mes, periodo_anio, monto").range(from, to)
+  const comisionesPorMesRaw = await fetchAllRows((from, to) =>
+    supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
   );
 
   const todosClientes = clientes ?? [];
@@ -49,11 +49,11 @@ export default async function DashboardPage() {
       aumPorMes.set(mes, total); // se queda con el último valor del mes
     });
 
-  // comisiones por mes
+  // comisiones por mes (ya viene sumado desde la vista de la base)
   const comisionesPorMes = new Map<string, number>();
-  comisiones.forEach((c) => {
+  comisionesPorMesRaw.forEach((c) => {
     const mes = `${c.periodo_anio}-${String(c.periodo_mes).padStart(2, "0")}`;
-    comisionesPorMes.set(mes, (comisionesPorMes.get(mes) ?? 0) + Number(c.monto));
+    comisionesPorMes.set(mes, Number(c.total));
   });
 
   const todosLosMeses = Array.from(new Set([...aumPorMes.keys(), ...comisionesPorMes.keys()])).sort();
