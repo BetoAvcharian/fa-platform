@@ -28,20 +28,28 @@ import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/prospectos", label: "Prospectos", icon: UserPlus },
-  { href: "/ex-clientes", label: "Ex Clientes", icon: UserX },
-  { href: "/licitaciones", label: "Licitaciones", icon: Gavel },
-  { href: "/tareas", label: "Tareas", icon: CheckSquare },
-  { href: "/resumen-dia", label: "Resumen del día", icon: NotebookPen },
-  { href: "/oportunidades", label: "Oportunidades", icon: Bell },
-  { href: "/comisiones", label: "Comisiones", icon: Receipt },
-  { href: "/reportes", label: "Reportes", icon: BarChart3 },
-  { href: "/importador", label: "Importador", icon: Upload },
+const NAV_GROUPS = [
+  [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  [
+    { href: "/clientes", label: "Clientes", icon: Users },
+    { href: "/prospectos", label: "Prospectos", icon: UserPlus },
+    { href: "/ex-clientes", label: "Ex Clientes", icon: UserX },
+  ],
+  [
+    { href: "/licitaciones", label: "Licitaciones", icon: Gavel },
+    { href: "/tareas", label: "Tareas", icon: CheckSquare },
+  ],
+  [
+    { href: "/resumen-dia", label: "Resumen del día", icon: NotebookPen },
+    { href: "/oportunidades", label: "Oportunidades", icon: Bell },
+  ],
+  [
+    { href: "/comisiones", label: "Comisiones", icon: Receipt },
+    { href: "/reportes", label: "Reportes", icon: BarChart3 },
+  ],
 ];
 
+const NAV_FINAL = [{ href: "/importador", label: "Importador", icon: Upload }];
 const NAV_ADMIN = { href: "/usuarios", label: "Usuarios", icon: UserCog };
 
 export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
@@ -94,26 +102,30 @@ export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-2 overflow-y-auto">
-          {[...NAV, ...(rol === "admin" ? [NAV_ADMIN] : [])].map((item) => {
-            const active = pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                  active
-                    ? "bg-white/10 text-white font-medium"
-                    : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-white"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-3 px-2 overflow-y-auto py-1">
+          {[...NAV_GROUPS, [...NAV_FINAL, ...(rol === "admin" ? [NAV_ADMIN] : [])]].map((grupo, gi) => (
+            <div key={gi} className="space-y-0.5">
+              {grupo.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-white/10 text-white font-medium"
+                        : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-white"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="space-y-1 border-t border-white/10 p-2">

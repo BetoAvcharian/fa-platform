@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD } from "@/lib/utils";
@@ -24,26 +25,28 @@ export default async function ReportesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: usuario } = await supabase.from("usuarios").select("rol").eq("id", user?.id).single();
 
-  const { data: clientes } = await supabase.from("clientes").select("*").limit(20000);
-  const { data: cuentas } = await supabase.from("cuentas").select("*").limit(20000);
-  const { data: titulares } = await supabase.from("cuenta_titulares").select("*").limit(20000);
-  const { data: patrimonio } = await supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false }).limit(20000);
-  const { data: comisiones } = await supabase.from("comisiones").select("*").limit(20000);
+  const clientes = await fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to));
+  const cuentas = await fetchAllRows((from, to) => supabase.from("cuentas").select("*").range(from, to));
+  const titulares = await fetchAllRows((from, to) => supabase.from("cuenta_titulares").select("*").range(from, to));
+  const patrimonio = await fetchAllRows((from, to) =>
+    supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false }).range(from, to)
+  );
+  const comisiones = await fetchAllRows((from, to) => supabase.from("comisiones").select("*").range(from, to));
 
-  const cuentaPorId = new Map((cuentas ?? []).map((c) => [c.id, c]));
+  const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
 
-  const activos = (clientes ?? []).filter((c) => c.tipo === "cliente" && c.estado === "activo");
-  const prospectos = (clientes ?? []).filter((c) => c.tipo === "prospecto" && c.estado !== "perdido");
+  const activos = clientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
+  const prospectos = clientes.filter((c) => c.tipo === "prospecto" && c.estado !== "perdido");
 
   // AUM más reciente por número de cuenta
   const aumPorCuenta = new Map<string, number>();
-  (patrimonio ?? []).forEach((p) => {
+  patrimonio.forEach((p) => {
     if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
   });
 
   // AUM por cliente — pasando por la tabla de titulares (una cuenta puede sumar a 2 clientes si es mancomunada)
   const aumPorCliente = new Map<string, number>();
-  (titulares ?? []).forEach((t) => {
+  titulares.forEach((t) => {
     const cuenta = cuentaPorId.get(t.cuenta_id);
     if (!cuenta) return;
     const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
@@ -51,15 +54,15 @@ export default async function ReportesPage() {
   });
 
   const anioActual = new Date().getFullYear();
-  const comisionesYTD = (comisiones ?? []).filter((c) => c.periodo_anio === anioActual);
+  const comisionesYTD = comisiones.filter((c) => c.periodo_anio === anioActual);
 
   const comisionPorCliente = new Map<string, number>();
   const comisionPorClientePorMes = new Map<string, Map<string, number>>(); // clienteId -> (mes -> total)
   comisionesYTD.forEach((com) => {
     if (!com.comitente) return;
-    const cuenta = (cuentas ?? []).find((cu) => cu.numero_cuenta === com.comitente);
+    const cuenta = cuentas.find((cu) => cu.numero_cuenta === com.comitente);
     if (cuenta) {
-      const titularesDeEstaCuenta = (titulares ?? []).filter((t) => t.cuenta_id === cuenta.id);
+      const titularesDeEstaCuenta = titulares.filter((t) => t.cuenta_id === cuenta.id);
       titularesDeEstaCuenta.forEach((t) => {
         comisionPorCliente.set(t.cliente_id, (comisionPorCliente.get(t.cliente_id) ?? 0) + Number(com.monto));
         const porMes = comisionPorClientePorMes.get(t.cliente_id) ?? new Map<string, number>();
@@ -70,12 +73,12 @@ export default async function ReportesPage() {
     }
   });
 
-  const topAum = [...(clientes ?? [])]
+  const topAum = [...clientes]
     .map((c) => ({ ...c, aum: aumPorCliente.get(c.id) ?? 0 }))
     .sort((a, b) => b.aum - a.aum)
     .slice(0, 10);
 
-  const topComision = [...(clientes ?? [])]
+  const topComision = [...clientes]
     .map((c) => ({
       ...c,
       comision: comisionPorCliente.get(c.id) ?? 0,
@@ -88,7 +91,7 @@ export default async function ReportesPage() {
   // AUM Local vs Offshore (según plaza de cada cuenta) + Total
   let aumLocalTotal = 0;
   let aumOffshoreTotal = 0;
-  (cuentas ?? []).forEach((cuenta) => {
+  cuentas.forEach((cuenta) => {
     const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
     if (cuenta.plaza === "local") aumLocalTotal += aum;
     else aumOffshoreTotal += aum;
@@ -97,7 +100,7 @@ export default async function ReportesPage() {
 
   // Comisiones totalizadas por mes
   const comisionesPorMes = new Map<string, number>();
-  (comisiones ?? []).forEach((c) => {
+  comisiones.forEach((c) => {
     const key = `${c.periodo_anio}-${String(c.periodo_mes).padStart(2, "0")}`;
     comisionesPorMes.set(key, (comisionesPorMes.get(key) ?? 0) + Number(c.monto));
   });
@@ -110,10 +113,10 @@ export default async function ReportesPage() {
 
   // Pareto: clientes por AUM y por Comisión
   const paretoAum = buildPareto(
-    (clientes ?? []).map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: aumPorCliente.get(c.id) ?? 0 }))
+    clientes.map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: aumPorCliente.get(c.id) ?? 0 }))
   );
   const paretoComision = buildPareto(
-    (clientes ?? []).map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: comisionPorCliente.get(c.id) ?? 0 }))
+    clientes.map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: comisionPorCliente.get(c.id) ?? 0 }))
   );
 
   return (

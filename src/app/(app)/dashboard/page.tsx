@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { StatCard } from "@/components/crm/stat-card";
 import { AumChart } from "@/components/crm/aum-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,19 +17,16 @@ export default async function DashboardPage() {
     .from("tareas")
     .select("*")
     .neq("estado", "completada");
-  const { data: patrimonio } = await supabase
-    .from("patrimonio")
-    .select("fecha_carga, aum")
-    .order("fecha_carga", { ascending: true })
-    .limit(20000);
+  const patrimonio = await fetchAllRows((from, to) =>
+    supabase.from("patrimonio").select("fecha_carga, aum").order("fecha_carga", { ascending: true }).range(from, to)
+  );
   const { data: licitaciones } = await supabase
     .from("licitaciones")
     .select("*")
     .order("fecha_licitacion", { ascending: true });
-  const { data: comisiones } = await supabase
-    .from("comisiones")
-    .select("periodo_mes, periodo_anio, monto")
-    .limit(20000);
+  const comisiones = await fetchAllRows((from, to) =>
+    supabase.from("comisiones").select("periodo_mes, periodo_anio, monto").range(from, to)
+  );
 
   const todosClientes = clientes ?? [];
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
@@ -40,7 +38,7 @@ export default async function DashboardPage() {
 
   // agrupar AUM histórico por mes (queda el último valor de cada mes, suma de todas las cuentas)
   const aumPorFecha = new Map<string, number>();
-  (patrimonio ?? []).forEach((p) => {
+  patrimonio.forEach((p) => {
     aumPorFecha.set(p.fecha_carga, (aumPorFecha.get(p.fecha_carga) ?? 0) + Number(p.aum));
   });
   const aumPorMes = new Map<string, number>();
@@ -53,7 +51,7 @@ export default async function DashboardPage() {
 
   // comisiones por mes
   const comisionesPorMes = new Map<string, number>();
-  (comisiones ?? []).forEach((c) => {
+  comisiones.forEach((c) => {
     const mes = `${c.periodo_anio}-${String(c.periodo_mes).padStart(2, "0")}`;
     comisionesPorMes.set(mes, (comisionesPorMes.get(mes) ?? 0) + Number(c.monto));
   });

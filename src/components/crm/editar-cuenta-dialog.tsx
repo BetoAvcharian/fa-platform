@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { SelectNative } from "@/components/ui/select-native";
 import { createClient } from "@/lib/supabase/client";
 import { PLAZAS, type PlazaTipo } from "@/lib/types";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CuentaActual {
@@ -22,12 +22,27 @@ interface CuentaActual {
 export function EditarCuentaDialog({ cuenta }: { cuenta: CuentaActual }) {
   const [open, setOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
   const [numeroCuenta, setNumeroCuenta] = useState(cuenta.numero_cuenta);
   const [tipoCuenta, setTipoCuenta] = useState(cuenta.tipo_cuenta ?? "");
   const [plaza, setPlaza] = useState<PlazaTipo>(cuenta.plaza);
   const [estadoCuenta, setEstadoCuenta] = useState(cuenta.estado_cuenta);
   const router = useRouter();
   const supabase = createClient();
+
+  async function handleEliminar() {
+    setEliminando(true);
+    const { error } = await supabase.from("cuentas").delete().eq("id", cuenta.id);
+    setEliminando(false);
+    if (error) {
+      toast.error("Error: " + error.message);
+      return;
+    }
+    toast.success("Cuenta eliminada");
+    setOpen(false);
+    router.refresh();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,10 +95,27 @@ export function EditarCuentaDialog({ cuenta }: { cuenta: CuentaActual }) {
               <option value="cerrada">Cerrada</option>
             </SelectNative>
           </div>
-          <div className="flex justify-end gap-2 border-t border-border pt-3">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={guardando}>{guardando ? "Guardando..." : "Guardar cambios"}</Button>
-          </div>
+          {!confirmarBorrado ? (
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <Button type="button" variant="ghost" onClick={() => setConfirmarBorrado(true)} className="text-danger">
+                <Trash2 className="h-3.5 w-3.5" /> Eliminar cuenta
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={guardando}>{guardando ? "Guardando..." : "Guardar cambios"}</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-md bg-danger/10 p-3">
+              <p className="text-sm">¿Seguro que querés eliminar esta cuenta? No se puede deshacer.</p>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setConfirmarBorrado(false)}>Cancelar</Button>
+                <Button type="button" variant="destructive" size="sm" disabled={eliminando} onClick={handleEliminar}>
+                  {eliminando ? "Eliminando..." : "Sí, eliminar"}
+                </Button>
+              </div>
+            </div>
+          )}
         </form>
       </DialogContent>
     </Dialog>

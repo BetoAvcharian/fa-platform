@@ -12,43 +12,40 @@ import { Download } from "lucide-react";
 
 const MESES_NOMBRE = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-export interface FilaComision {
+export interface FilaComisionResumen {
   id: string;
   periodo_mes: number;
   periodo_anio: number;
-  comitente: string | null;
-  concepto: string | null;
-  monto: number;
   cliente_nombre: string;
+  total: number;
+  operaciones: number;
 }
 
-export function ComisionesBrowser({ filas, anios }: { filas: FilaComision[]; anios: number[] }) {
+export function ComisionesBrowser({ filas, anios }: { filas: FilaComisionResumen[]; anios: number[] }) {
   const [anio, setAnio] = useState<string>(String(anios[0] ?? new Date().getFullYear()));
   const [mes, setMes] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
 
   const filtradas = useMemo(() => {
-    return filas.filter((f) => {
-      const matchAnio = anio === "todos" || f.periodo_anio === Number(anio);
-      const matchMes = mes === "todos" || f.periodo_mes === Number(mes);
-      const matchBusqueda =
-        !busqueda ||
-        f.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        (f.comitente ?? "").includes(busqueda);
-      return matchAnio && matchMes && matchBusqueda;
-    });
+    return filas
+      .filter((f) => {
+        const matchAnio = anio === "todos" || f.periodo_anio === Number(anio);
+        const matchMes = mes === "todos" || f.periodo_mes === Number(mes);
+        const matchBusqueda = !busqueda || f.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase());
+        return matchAnio && matchMes && matchBusqueda;
+      })
+      .sort((a, b) => b.total - a.total);
   }, [filas, anio, mes, busqueda]);
 
-  const total = filtradas.reduce((s, f) => s + f.monto, 0);
+  const total = filtradas.reduce((s, f) => s + f.total, 0);
 
   function exportarExcel() {
     const datos = filtradas.map((f) => ({
       Mes: MESES_NOMBRE[f.periodo_mes],
       Año: f.periodo_anio,
-      Comitente: f.comitente ?? "",
       Cliente: f.cliente_nombre,
-      Concepto: f.concepto ?? "",
-      MontoUSD: f.monto,
+      Operaciones: f.operaciones,
+      TotalUSD: f.total,
     }));
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
@@ -68,7 +65,7 @@ export function ComisionesBrowser({ filas, anios }: { filas: FilaComision[]; ani
           {MESES_NOMBRE.slice(1).map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
         </SelectNative>
         <Input
-          placeholder="Buscar por cliente o comitente..."
+          placeholder="Buscar por cliente..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="max-w-xs"
@@ -80,35 +77,29 @@ export function ComisionesBrowser({ filas, anios }: { filas: FilaComision[]; ani
 
       <Card>
         <CardContent className="flex items-center justify-between p-4">
-          <span className="text-sm text-muted-foreground">{filtradas.length} operaciones</span>
+          <span className="text-sm text-muted-foreground">{filtradas.length} filas (cliente + mes)</span>
           <span className="text-lg font-semibold tabular">{formatUSD(total)}</span>
         </CardContent>
       </Card>
 
       <Table>
         <THead>
-          <TR><TH>Mes</TH><TH>Comitente</TH><TH>Cliente</TH><TH>Concepto</TH><TH>Monto</TH></TR>
+          <TR><TH>Mes</TH><TH>Cliente</TH><TH>Operaciones</TH><TH>Total</TH></TR>
         </THead>
         <TBody>
-          {filtradas.slice(0, 500).map((f) => (
+          {filtradas.map((f) => (
             <TR key={f.id}>
               <TD>{MESES_NOMBRE[f.periodo_mes]} {f.periodo_anio}</TD>
-              <TD className="tabular">{f.comitente ?? "—"}</TD>
               <TD>{f.cliente_nombre}</TD>
-              <TD className="text-muted-foreground">{f.concepto ?? "—"}</TD>
-              <TD className="tabular">{formatUSD(f.monto)}</TD>
+              <TD className="tabular">{f.operaciones}</TD>
+              <TD className="tabular">{formatUSD(f.total)}</TD>
             </TR>
           ))}
           {filtradas.length === 0 && (
-            <TR><TD colSpan={5} className="text-center text-muted-foreground py-8">Sin resultados con esos filtros.</TD></TR>
+            <TR><TD colSpan={4} className="text-center text-muted-foreground py-8">Sin resultados con esos filtros.</TD></TR>
           )}
         </TBody>
       </Table>
-      {filtradas.length > 500 && (
-        <p className="text-center text-xs text-muted-foreground">
-          Mostrando las primeras 500 de {filtradas.length} — usá los filtros o exportá a Excel para ver el resto.
-        </p>
-      )}
     </div>
   );
 }
