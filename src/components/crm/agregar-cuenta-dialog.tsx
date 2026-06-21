@@ -29,17 +29,20 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
     setGuardando(true);
 
     // primero ver si ya existe una cuenta con ese número (sería un cotitular nuevo)
-    const { data: existente } = await supabase
+    const { data: existente, error: errorBusqueda } = await supabase
       .from("cuentas")
       .select("id")
       .eq("numero_cuenta", numeroCuenta)
       .maybeSingle();
 
-    let cuentaId: string;
+    if (errorBusqueda) {
+      console.error("Error buscando cuenta existente:", errorBusqueda);
+    }
 
-    if (existente) {
-      cuentaId = existente.id;
-    } else {
+    let cuentaId: string | null = existente?.id ?? null;
+    let esCotitular = !!existente;
+
+    if (!cuentaId) {
       const { data: cuentaCreada, error } = await supabase
         .from("cuentas")
         .insert({
@@ -51,12 +54,37 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
         .select("id")
         .single();
 
-      if (error || !cuentaCreada) {
-        setGuardando(false);
-        toast.error("Error: " + (error?.message ?? "no se pudo crear la cuenta"));
-        return;
+      if (error) {
+        // si falló por choque con el número único, es que la cuenta YA existe
+        // (la búsqueda de arriba no la encontró por algún motivo) -> la buscamos de nuevo y la vinculamos
+        if (error.code === "23505") {
+          const { data: existenteAhora, error: errorBusqueda2 } = await supabase
+            .from("cuentas")
+            .select("id")
+            .eq("numero_cuenta", numeroCuenta)
+            .maybeSingle();
+          if (existenteAhora) {
+            cuentaId = existenteAhora.id;
+            esCotitular = true;
+          } else {
+            setGuardando(false);
+            toast.error("Esa cuenta ya existe pero no se pudo recuperar: " + (errorBusqueda2?.message ?? ""));
+            return;
+          }
+        } else {
+          setGuardando(false);
+          toast.error("Error: " + error.message);
+          return;
+        }
+      } else if (cuentaCreada) {
+        cuentaId = cuentaCreada.id;
       }
-      cuentaId = cuentaCreada.id;
+    }
+
+    if (!cuentaId) {
+      setGuardando(false);
+      toast.error("No se pudo crear ni encontrar la cuenta");
+      return;
     }
 
     // evitar duplicar el vínculo si ya es titular de esa cuenta
@@ -75,14 +103,14 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
 
     const { error: errorTitular } = await supabase
       .from("cuenta_titulares")
-      .insert({ cuenta_id: cuentaId, cliente_id: clienteId, rol_titular: existente ? "cotitular" : "titular" });
+      .insert({ cuenta_id: cuentaId, cliente_id: clienteId, rol_titular: esCotitular ? "cotitular" : "titular" });
 
     setGuardando(false);
     if (errorTitular) {
       toast.error("Error vinculando titular: " + errorTitular.message);
       return;
     }
-    toast.success(existente ? "Cliente vinculado como cotitular de la cuenta" : "Cuenta agregada");
+    toast.success(esCotitular ? "Cliente vinculado como cotitular de la cuenta" : "Cuenta agregada");
     setNumeroCuenta("");
     setTipoCuenta("");
     setOpen(false);

@@ -19,14 +19,16 @@ export default async function DashboardPage() {
   const { data: patrimonio } = await supabase
     .from("patrimonio")
     .select("fecha_carga, aum")
-    .order("fecha_carga", { ascending: true });
+    .order("fecha_carga", { ascending: true })
+    .limit(20000);
   const { data: licitaciones } = await supabase
     .from("licitaciones")
     .select("*")
     .order("fecha_licitacion", { ascending: true });
   const { data: comisiones } = await supabase
     .from("comisiones")
-    .select("periodo_mes, periodo_anio, monto");
+    .select("periodo_mes, periodo_anio, monto")
+    .limit(20000);
 
   const todosClientes = clientes ?? [];
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");

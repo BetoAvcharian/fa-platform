@@ -23,11 +23,11 @@ export default async function ReportesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: usuario } = await supabase.from("usuarios").select("rol").eq("id", user?.id).single();
 
-  const { data: clientes } = await supabase.from("clientes").select("*");
-  const { data: cuentas } = await supabase.from("cuentas").select("*");
-  const { data: titulares } = await supabase.from("cuenta_titulares").select("*");
-  const { data: patrimonio } = await supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false });
-  const { data: comisiones } = await supabase.from("comisiones").select("*");
+  const { data: clientes } = await supabase.from("clientes").select("*").limit(20000);
+  const { data: cuentas } = await supabase.from("cuentas").select("*").limit(20000);
+  const { data: titulares } = await supabase.from("cuenta_titulares").select("*").limit(20000);
+  const { data: patrimonio } = await supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false }).limit(20000);
+  const { data: comisiones } = await supabase.from("comisiones").select("*").limit(20000);
 
   const cuentaPorId = new Map((cuentas ?? []).map((c) => [c.id, c]));
 
