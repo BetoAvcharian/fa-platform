@@ -27,33 +27,62 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
       return;
     }
     setGuardando(true);
-    const { data: cuentaCreada, error } = await supabase
-      .from("cuentas")
-      .insert({
-        numero_cuenta: numeroCuenta,
-        tipo_cuenta: tipoCuenta || null,
-        plaza,
-        estado_cuenta: "activa",
-      })
-      .select("id")
-      .single();
 
-    if (error || !cuentaCreada) {
+    // primero ver si ya existe una cuenta con ese número (sería un cotitular nuevo)
+    const { data: existente } = await supabase
+      .from("cuentas")
+      .select("id")
+      .eq("numero_cuenta", numeroCuenta)
+      .maybeSingle();
+
+    let cuentaId: string;
+
+    if (existente) {
+      cuentaId = existente.id;
+    } else {
+      const { data: cuentaCreada, error } = await supabase
+        .from("cuentas")
+        .insert({
+          numero_cuenta: numeroCuenta,
+          tipo_cuenta: tipoCuenta || null,
+          plaza,
+          estado_cuenta: "activa",
+        })
+        .select("id")
+        .single();
+
+      if (error || !cuentaCreada) {
+        setGuardando(false);
+        toast.error("Error: " + (error?.message ?? "no se pudo crear la cuenta"));
+        return;
+      }
+      cuentaId = cuentaCreada.id;
+    }
+
+    // evitar duplicar el vínculo si ya es titular de esa cuenta
+    const { data: vinculoExistente } = await supabase
+      .from("cuenta_titulares")
+      .select("cuenta_id")
+      .eq("cuenta_id", cuentaId)
+      .eq("cliente_id", clienteId)
+      .maybeSingle();
+
+    if (vinculoExistente) {
       setGuardando(false);
-      toast.error("Error: " + (error?.message ?? "no se pudo crear la cuenta"));
+      toast.error("Este cliente ya es titular de esa cuenta");
       return;
     }
 
     const { error: errorTitular } = await supabase
       .from("cuenta_titulares")
-      .insert({ cuenta_id: cuentaCreada.id, cliente_id: clienteId, rol_titular: "titular" });
+      .insert({ cuenta_id: cuentaId, cliente_id: clienteId, rol_titular: existente ? "cotitular" : "titular" });
 
     setGuardando(false);
     if (errorTitular) {
       toast.error("Error vinculando titular: " + errorTitular.message);
       return;
     }
-    toast.success("Cuenta agregada");
+    toast.success(existente ? "Cliente vinculado como cotitular de la cuenta" : "Cuenta agregada");
     setNumeroCuenta("");
     setTipoCuenta("");
     setOpen(false);

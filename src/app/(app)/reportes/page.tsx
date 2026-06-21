@@ -3,6 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/crm/export-excel-button";
+import { ParetoChart } from "@/components/crm/pareto-chart";
+
+const MESES_NOMBRE = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+function buildPareto(items: { nombre: string; valor: number }[]) {
+  const ordenado = items.filter((i) => i.valor > 0).sort((a, b) => b.valor - a.valor);
+  const total = ordenado.reduce((s, i) => s + i.valor, 0);
+  let acumulado = 0;
+  const conPct = ordenado.map((i) => {
+    acumulado += i.valor;
+    return { nombre: i.nombre, valor: i.valor, acumuladoPct: total > 0 ? (acumulado / total) * 100 : 0 };
+  });
+  return conPct.slice(0, 20);
+}
 
 export default async function ReportesPage() {
   const supabase = await createClient();
@@ -28,25 +42,16 @@ export default async function ReportesPage() {
 
   // AUM por cliente — pasando por la tabla de titulares (una cuenta puede sumar a 2 clientes si es mancomunada)
   const aumPorCliente = new Map<string, number>();
-  const cuentasPorCliente = new Map<string, Set<string>>(); // numero_cuenta visibles por cliente (para comisiones)
   (titulares ?? []).forEach((t) => {
     const cuenta = cuentaPorId.get(t.cuenta_id);
     if (!cuenta) return;
     const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
     aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum);
-    const set = cuentasPorCliente.get(t.cliente_id) ?? new Set<string>();
-    set.add(cuenta.numero_cuenta);
-    cuentasPorCliente.set(t.cliente_id, set);
   });
 
   const comisionPorCliente = new Map<string, number>();
-  let comisionesSinCliente = 0;
   (comisiones ?? []).forEach((com) => {
-    if (!com.comitente) {
-      comisionesSinCliente += Number(com.monto);
-      return;
-    }
-    // "comitente" en comisiones se matchea contra numero_cuenta de la cuenta
+    if (!com.comitente) return;
     const cuenta = (cuentas ?? []).find((cu) => cu.numero_cuenta === com.comitente);
     if (cuenta) {
       const titularesDeEstaCuenta = (titulares ?? []).filter((t) => t.cuenta_id === cuenta.id);
@@ -61,17 +66,13 @@ export default async function ReportesPage() {
     .sort((a, b) => b.aum - a.aum)
     .slice(0, 10);
 
-  const topPotencial = [...(clientes ?? [])]
-    .sort((a, b) => (b.potencial_usd ?? 0) - (a.potencial_usd ?? 0))
-    .slice(0, 10);
-
   const topComision = [...(clientes ?? [])]
     .map((c) => ({ ...c, comision: comisionPorCliente.get(c.id) ?? 0 }))
     .filter((c) => c.comision > 0)
     .sort((a, b) => b.comision - a.comision)
     .slice(0, 10);
 
-  // AUM Local vs Offshore (según plaza de cada cuenta)
+  // AUM Local vs Offshore (según plaza de cada cuenta) + Total
   let aumLocalTotal = 0;
   let aumOffshoreTotal = 0;
   (cuentas ?? []).forEach((cuenta) => {
@@ -79,6 +80,28 @@ export default async function ReportesPage() {
     if (cuenta.plaza === "local") aumLocalTotal += aum;
     else aumOffshoreTotal += aum;
   });
+  const aumTotalGeneral = aumLocalTotal + aumOffshoreTotal;
+
+  // Comisiones totalizadas por mes
+  const comisionesPorMes = new Map<string, number>();
+  (comisiones ?? []).forEach((c) => {
+    const key = `${c.periodo_anio}-${String(c.periodo_mes).padStart(2, "0")}`;
+    comisionesPorMes.set(key, (comisionesPorMes.get(key) ?? 0) + Number(c.monto));
+  });
+  const comisionesPorMesArr = Array.from(comisionesPorMes.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, total]) => {
+      const [anio, mes] = key.split("-");
+      return { label: `${MESES_NOMBRE[Number(mes)]} ${anio}`, total };
+    });
+
+  // Pareto: clientes por AUM y por Comisión
+  const paretoAum = buildPareto(
+    (clientes ?? []).map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: aumPorCliente.get(c.id) ?? 0 }))
+  );
+  const paretoComision = buildPareto(
+    (clientes ?? []).map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: comisionPorCliente.get(c.id) ?? 0 }))
+  );
 
   return (
     <div className="space-y-6">
@@ -90,7 +113,7 @@ export default async function ReportesPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card><CardHeader><CardTitle>Mis clientes</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{activos.length}</CardContent></Card>
         <Card><CardHeader><CardTitle>Mis prospectos</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{prospectos.length}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Comisiones sin cliente (premios)</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(comisionesSinCliente)}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Total AUM</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(aumTotalGeneral)}</CardContent></Card>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -98,7 +121,37 @@ export default async function ReportesPage() {
         <Card><CardHeader><CardTitle>AUM Offshore (BCI / StoneX / Pershing)</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{formatUSD(aumOffshoreTotal)}</CardContent></Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Card>
+        <CardHeader><CardTitle>Comisiones totalizadas por mes</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <THead><TR><TH>Mes</TH><TH>Total USD</TH></TR></THead>
+            <TBody>
+              {comisionesPorMesArr.map((m) => (
+                <TR key={m.label}><TD>{m.label}</TD><TD className="tabular">{formatUSD(m.total)}</TD></TR>
+              ))}
+              {comisionesPorMesArr.length === 0 && <TR><TD colSpan={2} className="text-center text-muted-foreground py-6">Sin comisiones cargadas.</TD></TR>}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Pareto — AUM por cliente (80/20)</CardTitle></CardHeader>
+          <CardContent>
+            {paretoAum.length > 0 ? <ParetoChart data={paretoAum} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin datos de AUM.</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Pareto — Comisión por cliente (80/20)</CardTitle></CardHeader>
+          <CardContent>
+            {paretoComision.length > 0 ? <ParetoChart data={paretoComision} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin comisiones cargadas.</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Top clientes por AUM</CardTitle>
@@ -115,26 +168,6 @@ export default async function ReportesPage() {
                   <TR key={c.id}><TD>{c.nombre} {c.apellido}</TD><TD className="tabular">{formatUSD(c.aum)}</TD></TR>
                 ))}
                 {topAum.length === 0 && <TR><TD colSpan={2} className="text-center text-muted-foreground py-6">Sin datos de patrimonio.</TD></TR>}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>Top clientes por potencial</CardTitle>
-            <ExportExcelButton
-              data={topPotencial.map((c) => ({ Cliente: `${c.nombre} ${c.apellido ?? ""}`, PotencialUSD: c.potencial_usd ?? 0 }))}
-              filename="top_clientes_potencial.xlsx"
-            />
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead><TR><TH>Cliente</TH><TH>Potencial</TH></TR></THead>
-              <TBody>
-                {topPotencial.map((c) => (
-                  <TR key={c.id}><TD>{c.nombre} {c.apellido}</TD><TD className="tabular">{formatUSD(c.potencial_usd ?? 0)}</TD></TR>
-                ))}
               </TBody>
             </Table>
           </CardContent>

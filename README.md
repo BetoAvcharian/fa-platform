@@ -88,3 +88,16 @@ supabase/
 - El **histórico de patrimonio y movimientos nunca se sobrescribe** — cada importación inserta filas nuevas con su `fecha_carga`/`fecha`. El AUM "actual" en el dashboard toma la fecha más reciente.
 - Los **número de cuenta** son el campo puente entre `patrimonio`/`movimientos` y `cuentas` — si tu fuente de datos usa otro identificador, avisame y ajustamos.
 - RLS está escrito para que un FA solo vea lo suyo, un Manager vea lo de su equipo (`manager_id`), y Admin vea todo. Lo probé a nivel de policies SQL; cuando tengas más de un usuario real cargado, lo probamos juntos extremo a extremo.
+
+## Credenciales de cuentas (anotar acá las que vayas creando)
+
+| Usuario | Email | Contraseña | Rol | Notas |
+|---|---|---|---|---|
+| Vos (Roberto) | avcharian1999@gmail.com | (la tuya) | Manager | Cuenta principal |
+| Admin nuevo | admin@titcrm.com | Admin1234 | Admin | Creado por script `reorganizar_usuarios.sql` |
+| Martina (prueba) | manager.test@titcrm.com | Test1234! | Admin (cambiado a mano) | Originalmente creada como Manager por `test_users.sql` |
+| FA 1 (prueba) | fa1.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
+| FA 2 (prueba) | fa2.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
+| FA 3 (prueba) | fa3.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
+
+**Importante**: este archivo queda en tu repo privado de GitHub, pero igual son contraseñas reales de acceso — si en algún momento compartís este repo con alguien más, cambiá las contraseñas antes.

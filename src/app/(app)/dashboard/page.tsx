@@ -24,6 +24,9 @@ export default async function DashboardPage() {
     .from("licitaciones")
     .select("*")
     .order("fecha_licitacion", { ascending: true });
+  const { data: comisiones } = await supabase
+    .from("comisiones")
+    .select("periodo_mes, periodo_anio, monto");
 
   const todosClientes = clientes ?? [];
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
@@ -33,13 +36,33 @@ export default async function DashboardPage() {
   const sinContacto60 = activos.filter((c) => (diasDesde(c.fecha_ultimo_contacto) ?? 0) >= 60 && (diasDesde(c.fecha_ultimo_contacto) ?? 0) < 90);
   const sinContacto90 = activos.filter((c) => (diasDesde(c.fecha_ultimo_contacto) ?? 0) >= 90);
 
-  // agrupar AUM histórico por fecha de carga (suma de todas las cuentas)
+  // agrupar AUM histórico por mes (queda el último valor de cada mes, suma de todas las cuentas)
   const aumPorFecha = new Map<string, number>();
   (patrimonio ?? []).forEach((p) => {
     aumPorFecha.set(p.fecha_carga, (aumPorFecha.get(p.fecha_carga) ?? 0) + Number(p.aum));
   });
-  const chartData = Array.from(aumPorFecha.entries()).map(([fecha, aum]) => ({ fecha, aum }));
-  const aumActual = chartData.at(-1)?.aum ?? 0;
+  const aumPorMes = new Map<string, number>();
+  Array.from(aumPorFecha.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([fecha, total]) => {
+      const mes = fecha.slice(0, 7); // YYYY-MM
+      aumPorMes.set(mes, total); // se queda con el último valor del mes
+    });
+
+  // comisiones por mes
+  const comisionesPorMes = new Map<string, number>();
+  (comisiones ?? []).forEach((c) => {
+    const mes = `${c.periodo_anio}-${String(c.periodo_mes).padStart(2, "0")}`;
+    comisionesPorMes.set(mes, (comisionesPorMes.get(mes) ?? 0) + Number(c.monto));
+  });
+
+  const todosLosMeses = Array.from(new Set([...aumPorMes.keys(), ...comisionesPorMes.keys()])).sort();
+  const chartData = todosLosMeses.map((mes) => ({
+    fecha: mes,
+    aum: aumPorMes.get(mes) ?? null,
+    comisiones: comisionesPorMes.get(mes) ?? null,
+  }));
+  const aumActual = [...aumPorMes.values()].at(-1) ?? 0;
 
   const tareasPendientes = tareas ?? [];
   const hoy = new Date();
@@ -84,7 +107,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Evolución de AUM</CardTitle>
+            <CardTitle>Evolución de AUM y Comisiones</CardTitle>
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (

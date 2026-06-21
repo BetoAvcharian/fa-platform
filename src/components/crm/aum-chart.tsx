@@ -1,9 +1,9 @@
 "use client";
 
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { formatUSD } from "@/lib/utils";
 
-export function AumChart({ data }: { data: { fecha: string; aum: number }[] }) {
+export function AumChart({ data }: { data: { fecha: string; aum: number | null; comisiones: number | null }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -16,12 +16,20 @@ export function AumChart({ data }: { data: { fecha: string; aum: number }[] }) {
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
         <XAxis dataKey="fecha" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
         <YAxis
+          yAxisId="aum"
           tick={{ fontSize: 11 }}
           stroke="hsl(var(--muted-foreground))"
           tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`}
         />
+        <YAxis
+          yAxisId="comisiones"
+          orientation="right"
+          tick={{ fontSize: 11 }}
+          stroke="hsl(38 92% 50%)"
+          tickFormatter={(v) => `${(v / 1e3).toFixed(0)}k`}
+        />
         <Tooltip
-          formatter={(value: number) => formatUSD(value)}
+          formatter={(value: number, name: string) => [formatUSD(value), name]}
           contentStyle={{
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
@@ -29,7 +37,27 @@ export function AumChart({ data }: { data: { fecha: string; aum: number }[] }) {
             fontSize: 12,
           }}
         />
-        <Area type="monotone" dataKey="aum" stroke="hsl(160 84% 39%)" fill="url(#aumGradient)" strokeWidth={2} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Area
+          yAxisId="aum"
+          type="monotone"
+          dataKey="aum"
+          name="AUM"
+          stroke="hsl(160 84% 39%)"
+          fill="url(#aumGradient)"
+          strokeWidth={2}
+          connectNulls
+        />
+        <Line
+          yAxisId="comisiones"
+          type="monotone"
+          dataKey="comisiones"
+          name="Comisiones"
+          stroke="hsl(38 92% 50%)"
+          strokeWidth={2}
+          dot={{ r: 3 }}
+          connectNulls
+        />
       </AreaChart>
     </ResponsiveContainer>
   );

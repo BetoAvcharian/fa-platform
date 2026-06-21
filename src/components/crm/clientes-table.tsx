@@ -134,9 +134,8 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
           onChange={(e) => updateParams({ tipo: e.target.value })}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm"
         >
-          <option value="todos">Todos los tipos</option>
+          <option value="todos">Todos</option>
           <option value="cliente">Cliente</option>
-          <option value="prospecto">Prospecto</option>
         </select>
         <select
           value={estado}

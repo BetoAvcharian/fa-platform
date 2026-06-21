@@ -11,6 +11,7 @@ import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 import { BackButton } from "@/components/ui/back-button";
 import { WhatsappButton } from "@/components/crm/whatsapp-button";
 import { AgregarCuentaDialog } from "@/components/crm/agregar-cuenta-dialog";
+import { EditarCuentaDialog } from "@/components/crm/editar-cuenta-dialog";
 import { EliminarClienteDialog } from "@/components/crm/eliminar-cliente-dialog";
 import { PLAZAS } from "@/lib/types";
 
@@ -164,7 +165,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               <AgregarCuentaDialog clienteId={cliente.id} />
             </div>
             <Table>
-              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH><TH>Saldo</TH><TH>Comisión mes pasado</TH><TH>Cotitular</TH></TR></THead>
+              <THead><TR><TH>Comitente</TH><TH>Tipo</TH><TH>Plaza</TH><TH>Estado</TH><TH>Saldo</TH><TH>Comisión mes pasado</TH><TH>Cotitular</TH><TH></TH></TR></THead>
               <TBody>
                 {(cuentas ?? []).map((cu: any) => {
                   const cotitular = (otrosTitulares ?? []).find((t: any) => t.cuenta_id === cu.id);
@@ -183,10 +184,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                           </Link>
                         ) : "—"}
                       </TD>
+                      <TD><EditarCuentaDialog cuenta={cu} /></TD>
                     </TR>
                   );
                 })}
-                {(cuentas ?? []).length === 0 && <TR><TD colSpan={7} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
+                {(cuentas ?? []).length === 0 && <TR><TD colSpan={8} className="text-center text-muted-foreground py-6">Sin cuentas registradas.</TD></TR>}
               </TBody>
             </Table>
           </div>
