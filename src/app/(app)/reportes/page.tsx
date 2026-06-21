@@ -4,6 +4,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD } from "@/lib/utils";
 import { ExportExcelButton } from "@/components/crm/export-excel-button";
 import { ParetoChart } from "@/components/crm/pareto-chart";
+import { TopComisionTable } from "@/components/crm/top-comision-table";
 
 const MESES_NOMBRE = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -49,14 +50,22 @@ export default async function ReportesPage() {
     aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum);
   });
 
+  const anioActual = new Date().getFullYear();
+  const comisionesYTD = (comisiones ?? []).filter((c) => c.periodo_anio === anioActual);
+
   const comisionPorCliente = new Map<string, number>();
-  (comisiones ?? []).forEach((com) => {
+  const comisionPorClientePorMes = new Map<string, Map<string, number>>(); // clienteId -> (mes -> total)
+  comisionesYTD.forEach((com) => {
     if (!com.comitente) return;
     const cuenta = (cuentas ?? []).find((cu) => cu.numero_cuenta === com.comitente);
     if (cuenta) {
       const titularesDeEstaCuenta = (titulares ?? []).filter((t) => t.cuenta_id === cuenta.id);
       titularesDeEstaCuenta.forEach((t) => {
         comisionPorCliente.set(t.cliente_id, (comisionPorCliente.get(t.cliente_id) ?? 0) + Number(com.monto));
+        const porMes = comisionPorClientePorMes.get(t.cliente_id) ?? new Map<string, number>();
+        const mesLabel = MESES_NOMBRE[com.periodo_mes] ?? String(com.periodo_mes);
+        porMes.set(mesLabel, (porMes.get(mesLabel) ?? 0) + Number(com.monto));
+        comisionPorClientePorMes.set(t.cliente_id, porMes);
       });
     }
   });
@@ -67,7 +76,11 @@ export default async function ReportesPage() {
     .slice(0, 10);
 
   const topComision = [...(clientes ?? [])]
-    .map((c) => ({ ...c, comision: comisionPorCliente.get(c.id) ?? 0 }))
+    .map((c) => ({
+      ...c,
+      comision: comisionPorCliente.get(c.id) ?? 0,
+      porMes: Array.from((comisionPorClientePorMes.get(c.id) ?? new Map()).entries()).map(([mes, total]) => ({ mes, total })),
+    }))
     .filter((c) => c.comision > 0)
     .sort((a, b) => b.comision - a.comision)
     .slice(0, 10);
@@ -142,7 +155,7 @@ export default async function ReportesPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Pareto — Comisión por cliente (80/20)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Pareto — Comisión YTD por cliente (80/20)</CardTitle></CardHeader>
           <CardContent>
             {paretoComision.length > 0 ? <ParetoChart data={paretoComision} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin comisiones cargadas.</p>}
           </CardContent>
@@ -173,22 +186,14 @@ export default async function ReportesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>Top clientes por comisión generada</CardTitle>
+            <CardTitle>Top clientes por comisión YTD</CardTitle>
             <ExportExcelButton
               data={topComision.map((c) => ({ Cliente: `${c.nombre} ${c.apellido ?? ""}`, ComisionUSD: c.comision }))}
               filename="top_clientes_comision.xlsx"
             />
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <THead><TR><TH>Cliente</TH><TH>Comisión</TH></TR></THead>
-              <TBody>
-                {topComision.map((c) => (
-                  <TR key={c.id}><TD>{c.nombre} {c.apellido}</TD><TD className="tabular">{formatUSD(c.comision)}</TD></TR>
-                ))}
-                {topComision.length === 0 && <TR><TD colSpan={2} className="text-center text-muted-foreground py-6">Sin comisiones cargadas.</TD></TR>}
-              </TBody>
-            </Table>
+            <TopComisionTable filas={topComision} />
           </CardContent>
         </Card>
       </div>
