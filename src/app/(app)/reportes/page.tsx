@@ -136,9 +136,7 @@ export default async function ReportesPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Pareto — AUM por cliente (80/20)</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 gap-4">
           <CardContent>
             {paretoAum.length > 0 ? <ParetoChart data={paretoAum} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin datos de AUM.</p>}
           </CardContent>

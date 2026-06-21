@@ -1,12 +1,12 @@
 "use client";
 
-import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { formatUSD } from "@/lib/utils";
 
 export function AumChart({ data }: { data: { fecha: string; aum: number | null; comisiones: number | null }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="aumGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(160 84% 39%)" stopOpacity={0.35} />
@@ -58,7 +58,7 @@ export function AumChart({ data }: { data: { fecha: string; aum: number | null; 
           dot={{ r: 3 }}
           connectNulls
         />
-      </AreaChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
