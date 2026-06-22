@@ -1,5 +1,5 @@
-import { Logo } from "@/components/ui/logo";
 "use client";
+import { Logo } from "@/components/ui/logo";
 
 import { useState } from "react";
 import Link from "next/link";
