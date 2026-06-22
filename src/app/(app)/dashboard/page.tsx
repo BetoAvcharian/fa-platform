@@ -57,11 +57,12 @@ export default async function DashboardPage() {
   });
 
   const todosLosMeses = Array.from(new Set([...aumPorMes.keys(), ...comisionesPorMes.keys()])).sort();
-  const chartData = todosLosMeses.map((mes) => ({
-    fecha: mes,
-    aum: aumPorMes.get(mes) ?? null,
-    comisiones: comisionesPorMes.get(mes) ?? null,
-  }));
+  const chartData = todosLosMeses.map((mes) => {
+    const aum = aumPorMes.get(mes) ?? null;
+    const com = comisionesPorMes.get(mes) ?? null;
+    const roa = aum && com && aum > 0 ? (com / aum) * 100 : null;
+    return { fecha: mes, aum, comisiones: com, roa };
+  });
   const aumActual = [...aumPorMes.values()].at(-1) ?? 0;
 
   const tareasPendientes = tareas ?? [];
@@ -107,7 +108,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Evolución de AUM y Comisiones</CardTitle>
+            <CardTitle>Evolución de AUM, Comisiones y ROA</CardTitle>
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (

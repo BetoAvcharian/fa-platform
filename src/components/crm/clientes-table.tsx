@@ -10,7 +10,50 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatUSD, diasDesde } from "@/lib/utils";
 import type { Cliente } from "@/lib/types";
-import { Download, ArrowUp, ArrowDown } from "lucide-react";
+import { Download, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+function PotencialEditable({ clienteId, valor }: { clienteId: string; valor: number }) {
+  const [editando, setEditando] = useState(false);
+  const [valorTemp, setValorTemp] = useState(String(valor ?? 0));
+  const router = useRouter();
+  const supabase = createClient();
+
+  async function guardar() {
+    setEditando(false);
+    const nuevoValor = Number(valorTemp) || 0;
+    if (nuevoValor === valor) return;
+    const { error } = await supabase.from("clientes").update({ potencial_usd: nuevoValor }).eq("id", clienteId);
+    if (!error) router.refresh();
+  }
+
+  if (editando) {
+    return (
+      <Input
+        type="number"
+        autoFocus
+        value={valorTemp}
+        onChange={(e) => setValorTemp(e.target.value)}
+        onBlur={guardar}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") guardar();
+          if (e.key === "Escape") { setValorTemp(String(valor ?? 0)); setEditando(false); }
+        }}
+        className="h-7 w-28 tabular"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setValorTemp(String(valor ?? 0)); setEditando(true); }}
+      className="group flex items-center gap-1.5 tabular hover:text-accent"
+    >
+      {formatUSD(valor ?? 0)}
+      <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60" />
+    </button>
+  );
+}
 
 type ClienteRow = Cliente & { owner_nombre?: string; aum?: number };
 
@@ -181,7 +224,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
                 </TD>
                 <TD className="text-muted-foreground">{c.owner_nombre ?? "—"}</TD>
                 <TD className="tabular">{formatUSD(c.aum ?? 0)}</TD>
-                <TD className="tabular">{formatUSD(c.potencial_usd ?? 0)}</TD>
+                <TD><PotencialEditable clienteId={c.id} valor={c.potencial_usd ?? 0} /></TD>
                 <TD>
                   {dias === null ? (
                     "—"

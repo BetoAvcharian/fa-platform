@@ -3,9 +3,16 @@
 import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { formatUSD } from "@/lib/utils";
 
-export function AumChart({ data }: { data: { fecha: string; aum: number | null; comisiones: number | null }[] }) {
+interface ChartPoint {
+  fecha: string;
+  aum: number | null;
+  comisiones: number | null;
+  roa: number | null;
+}
+
+export function AumChart({ data }: { data: ChartPoint[] }) {
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="aumGradient" x1="0" y1="0" x2="0" y2="1">
@@ -28,8 +35,10 @@ export function AumChart({ data }: { data: { fecha: string; aum: number | null; 
           stroke="hsl(38 92% 50%)"
           tickFormatter={(v) => `${(v / 1e3).toFixed(0)}k`}
         />
+        {/* eje del ROA, oculto, solo para que la línea tenga su propia escala (es %, no $) */}
+        <YAxis yAxisId="roa" hide domain={[0, "auto"]} />
         <Tooltip
-          formatter={(value: number, name: string) => [formatUSD(value), name]}
+          formatter={(value: number, name: string) => (name === "ROA %" ? `${value.toFixed(2)}%` : formatUSD(value))}
           contentStyle={{
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
@@ -55,6 +64,17 @@ export function AumChart({ data }: { data: { fecha: string; aum: number | null; 
           name="Comisiones"
           stroke="hsl(38 92% 50%)"
           strokeWidth={2}
+          dot={{ r: 3 }}
+          connectNulls
+        />
+        <Line
+          yAxisId="roa"
+          type="monotone"
+          dataKey="roa"
+          name="ROA %"
+          stroke="hsl(265 83% 65%)"
+          strokeWidth={2}
+          strokeDasharray="4 3"
           dot={{ r: 3 }}
           connectNulls
         />

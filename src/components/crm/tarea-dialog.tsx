@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectNative } from "@/components/ui/select-native";
+import { ClienteCombobox } from "@/components/crm/cliente-combobox";
 import { createClient } from "@/lib/supabase/client";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -25,16 +26,27 @@ export function TareaDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [form, setForm] = useState({
+
+  const estadoInicial = {
     titulo: tarea?.titulo ?? "",
     descripcion: tarea?.descripcion ?? "",
     cliente_id: tarea?.cliente_id ?? "",
     prioridad: tarea?.prioridad ?? "media",
     fecha_vencimiento: tarea?.fecha_vencimiento ?? "",
     estado: tarea?.estado ?? "pendiente",
-  });
+  };
+
+  const [form, setForm] = useState(estadoInicial);
   const router = useRouter();
   const supabase = createClient();
+
+  function handleOpenChange(nuevoEstado: boolean) {
+    setOpen(nuevoEstado);
+    if (nuevoEstado) {
+      // al abrir, siempre arranca limpio (si es "Nueva tarea") o con los datos actuales (si es editar)
+      setForm(estadoInicial);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +81,7 @@ export function TareaDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button size="sm">
@@ -92,12 +104,12 @@ export function TareaDialog({
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Cliente (opcional)</label>
-            <SelectNative value={form.cliente_id} onChange={(e) => setForm((f) => ({ ...f, cliente_id: e.target.value }))}>
-              <option value="">Sin cliente asociado</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre} {c.apellido ?? ""}</option>
-              ))}
-            </SelectNative>
+            <ClienteCombobox
+              clientes={clientes}
+              value={form.cliente_id ?? ""}
+              onChange={(id) => setForm((f) => ({ ...f, cliente_id: id }))}
+              placeholder="Sin cliente asociado"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

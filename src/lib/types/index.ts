@@ -81,6 +81,7 @@ export interface LicitacionOrden {
   id: string;
   licitacion_id: string;
   cliente_id: string;
+  comitente: string | null;
   monto: number;
   moneda: MonedaTipo;
   estado: LicitacionEstadoOrden;

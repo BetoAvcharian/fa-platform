@@ -14,6 +14,7 @@ import { ESTADOS_ORDEN, MONEDAS, type LicitacionOrden, type LicitacionEstadoOrde
 import { Plus, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { ClienteCombobox } from "@/components/crm/cliente-combobox";
 
 type OrdenRow = LicitacionOrden & { cliente_nombre?: string };
 interface ClienteOption { id: string; nombre: string; apellido: string | null }
@@ -45,7 +46,7 @@ export function OrdenesTable({
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [nueva, setNueva] = useState({ cliente_id: "", monto: "", moneda: monedaBase, comentario: "" });
+  const [nueva, setNueva] = useState({ cliente_id: "", comitente: "", monto: "", moneda: monedaBase, comentario: "" });
   const [guardando, setGuardando] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
@@ -58,6 +59,7 @@ export function OrdenesTable({
     const { error } = await supabase.from("licitacion_ordenes").insert({
       licitacion_id: licitacionId,
       cliente_id: nueva.cliente_id,
+      comitente: nueva.comitente || null,
       monto: Number(nueva.monto),
       moneda: nueva.moneda,
       comentario: nueva.comentario || null,
@@ -68,7 +70,7 @@ export function OrdenesTable({
       toast.error("Error: " + error.message);
       return;
     }
-    setNueva({ cliente_id: "", monto: "", moneda: monedaBase, comentario: "" });
+    setNueva({ cliente_id: "", comitente: "", monto: "", moneda: monedaBase, comentario: "" });
     router.refresh();
   }
 
@@ -81,6 +83,10 @@ export function OrdenesTable({
     await supabase.from("licitacion_ordenes").update({ comentario }).eq("id", id);
   }
 
+  async function actualizarComitente(id: string, comitente: string) {
+    await supabase.from("licitacion_ordenes").update({ comitente: comitente || null }).eq("id", id);
+  }
+
   async function eliminar(id: string) {
     await supabase.from("licitacion_ordenes").delete().eq("id", id);
     router.refresh();
@@ -89,6 +95,7 @@ export function OrdenesTable({
   function exportarExcel() {
     const datos = ordenes.map((o) => ({
       Cliente: o.cliente_nombre,
+      Comitente: o.comitente ?? "",
       Monto: o.monto,
       Moneda: o.moneda,
       Estado: ESTADOS_ORDEN.find((e) => e.key === o.estado)?.label ?? o.estado,
@@ -149,12 +156,20 @@ export function OrdenesTable({
 
       <Table>
         <THead>
-          <TR><TH>Cliente</TH><TH>Monto</TH><TH>Moneda</TH><TH>Estado</TH><TH>Comentario</TH><TH></TH></TR>
+          <TR><TH>Cliente</TH><TH>Comitente</TH><TH>Monto</TH><TH>Moneda</TH><TH>Estado</TH><TH>Comentario</TH><TH></TH></TR>
         </THead>
         <TBody>
           {ordenesFiltradas.map((o) => (
             <TR key={o.id} className={ESTADO_BG[o.estado]}>
               <TD>{o.cliente_nombre}</TD>
+              <TD>
+                <Input
+                  defaultValue={o.comitente ?? ""}
+                  onBlur={(e) => actualizarComitente(o.id, e.target.value)}
+                  className="h-8 w-28 tabular"
+                  placeholder="Comitente"
+                />
+              </TD>
               <TD className="tabular">{formatUSD(o.monto)}</TD>
               <TD>{o.moneda}</TD>
               <TD>
@@ -185,10 +200,21 @@ export function OrdenesTable({
           {/* fila para agregar nueva orden */}
           <TR>
             <TD>
-              <SelectNative value={nueva.cliente_id} onChange={(e) => setNueva((f) => ({ ...f, cliente_id: e.target.value }))} className="h-8">
-                <option value="">Elegir cliente...</option>
-                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre} {c.apellido ?? ""}</option>)}
-              </SelectNative>
+              <ClienteCombobox
+                clientes={clientes}
+                value={nueva.cliente_id}
+                onChange={(id) => setNueva((f) => ({ ...f, cliente_id: id }))}
+                placeholder="Elegir cliente..."
+                permitirVacio={false}
+              />
+            </TD>
+            <TD>
+              <Input
+                value={nueva.comitente}
+                onChange={(e) => setNueva((f) => ({ ...f, comitente: e.target.value }))}
+                className="h-8 w-28"
+                placeholder="Comitente"
+              />
             </TD>
             <TD>
               <Input type="number" value={nueva.monto} onChange={(e) => setNueva((f) => ({ ...f, monto: e.target.value }))} className="h-8 w-28" placeholder="Monto" />
@@ -210,7 +236,7 @@ export function OrdenesTable({
           </TR>
 
           {ordenesFiltradas.length === 0 && (
-            <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">Sin órdenes con ese filtro.</TD></TR>
+            <TR><TD colSpan={7} className="text-center text-muted-foreground py-6">Sin órdenes con ese filtro.</TD></TR>
           )}
         </TBody>
       </Table>
