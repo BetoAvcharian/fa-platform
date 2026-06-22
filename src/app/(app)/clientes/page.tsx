@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { Suspense } from "react";
 import { ClientesTable } from "@/components/crm/clientes-table";
 import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
@@ -13,17 +14,30 @@ export default async function ClientesPage() {
     .eq("estado", "activo")
     .order("created_at", { ascending: false });
 
-  const { data: titulares } = await supabase.from("cuenta_titulares").select("cliente_id, cuentas:cuenta_id (numero_cuenta)");
-  const { data: patrimonio } = await supabase.from("patrimonio").select("numero_cuenta, aum, fecha_carga").order("fecha_carga", { ascending: false });
+  const titulares = await fetchAllRows((from, to) =>
+    supabase.from("cuenta_titulares").select("cliente_id, cuenta_id, cuentas:cuenta_id (numero_cuenta)").range(from, to)
+  );
+  const patrimonio = await fetchAllRows((from, to) =>
+    supabase.from("patrimonio").select("numero_cuenta, aum, fecha_carga").order("fecha_carga", { ascending: false }).range(from, to)
+  );
 
   const aumPorCuenta = new Map<string, number>();
-  (patrimonio ?? []).forEach((p) => {
+  patrimonio.forEach((p) => {
     if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
   });
+
+  // si una cuenta tiene más de un titular (mancomunada), se divide entre todos
+  // para que el AUM total de la lista no quede duplicado
+  const titularesPorCuenta = new Map<string, number>();
+  titulares.forEach((t: any) => {
+    titularesPorCuenta.set(t.cuenta_id, (titularesPorCuenta.get(t.cuenta_id) ?? 0) + 1);
+  });
+
   const aumPorCliente = new Map<string, number>();
-  (titulares ?? []).forEach((t: any) => {
+  titulares.forEach((t: any) => {
     const aum = aumPorCuenta.get(t.cuentas?.numero_cuenta) ?? 0;
-    aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum);
+    const cantidadTitulares = titularesPorCuenta.get(t.cuenta_id) ?? 1;
+    aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum / cantidadTitulares);
   });
 
   const rows = (clientes ?? []).map((c: any) => ({

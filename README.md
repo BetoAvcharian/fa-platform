@@ -1,103 +1,158 @@
-# FA Platform — Wealth Management CRM
+# TIT CRM — Wealth Management CRM
 
-CRM para Financial Advisors y equipos de Wealth Management. Next.js 15 + TypeScript + Tailwind + shadcn-style components + Supabase (DB + Auth + RLS) + Recharts.
+CRM para Financial Advisors y equipos de Wealth Management. Next.js 15 + TypeScript + Tailwind + Supabase (Postgres + Auth + Storage + RLS) + Recharts.
 
-## Qué está hecho en esta fase
+---
 
-- **Auth** completo con Supabase (login, middleware que protege rutas, roles)
-- **Schema SQL completo** con los 9 módulos del brief (usuarios, clientes, cuentas, kyc, interacciones, tareas, patrimonio, movimientos) + **Row Level Security** para Admin / Manager / FA
-- **Dashboard**: AUM total, clientes/prospectos activos, tareas pendientes, clientes sin contacto 30/60/90 días, gráfico de evolución de AUM, alertas
-- **CRM Clientes**: tabla con filtros (nombre, tipo, estado) + vista **Cliente 360** con tabs (Perfil, Cuentas, KYC, Interacciones, Patrimonio, Tareas, Oportunidades)
-- **Pipeline comercial**: kanban con drag & drop entre las 7 etapas, valor potencial por columna
-- **Tareas**: vista lista con prioridad y estado
-- **Oportunidades**: motor de alertas (sin contacto +60/+90 días, tareas vencidas)
-- **Importador de patrimonio**: sube Excel, valida, **siempre inserta** (nunca pisa histórico)
-- **Reportes**: vista básica por rol
-- Sidebar colapsable, dark/light mode, formato de moneda en USD
+## Stack técnico
 
-## Qué falta para fase 2 (decime qué priorizar)
+- **Next.js 15** (App Router, Server Components)
+- **TypeScript**
+- **Tailwind CSS** + componentes propios estilo shadcn (en `src/components/ui`)
+- **Supabase**: base de datos Postgres, autenticación, row-level security (RLS), storage de archivos
+- **Recharts**: gráficos
+- **SheetJS (xlsx)**: importar/exportar Excel
+- Deploy en **Vercel**, código en **GitHub**
 
-- Importador de movimientos (mismo patrón que patrimonio)
-- Reportes de Manager (ranking advisors, conversión pipeline) y vista global Admin
-- Formularios de alta/edición de Cliente, Cuenta, KYC, Interacción, Tarea (hoy se ve todo, falta el CRUD desde la UI — por ahora se prueba insertando filas desde Supabase o el seed)
-- Calendario de tareas
-- Reasignación de clientes (Manager)
-- Integraciones futuras: Outlook, WhatsApp Business, APIs de custodios, IA
+---
 
-## Cómo levantarlo (vos de tu lado)
-
-### 1. Crear proyecto en Supabase
-1. Entrá a https://supabase.com → New Project
-2. Cuando esté listo, vas a **SQL Editor** → pegás todo el contenido de `supabase/schema.sql` → Run
-3. En **Authentication → Providers**, dejá Email habilitado
-4. Creá tu primer usuario: Authentication → Users → Add user (con email/password). El trigger crea automáticamente la fila en `public.usuarios` con rol `fa`.
-5. Para que tu usuario sea Admin: en SQL Editor corré
-   ```sql
-   update public.usuarios set rol = 'admin' where email = 'tu@email.com';
-   ```
-6. (Opcional) Cargá datos de prueba: abrí `supabase/seed.sql`, reemplazá `TU_USER_ID` por tu id real (lo ves en Authentication → Users) y corrélo en SQL Editor.
-
-### 2. Variables de entorno
-1. Copiá `.env.local.example` a `.env.local`
-2. Completá con los datos de tu proyecto Supabase (Settings → API):
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-
-### 3. Instalar y correr local
-```bash
-npm install
-npm run dev
-```
-Abrí http://localhost:3000 — te va a redirigir a `/login`.
-
-### 4. Deploy en Vercel
-1. Subí esta carpeta a un repo de GitHub
-2. En https://vercel.com → New Project → importá el repo
-3. Agregá las mismas 3 variables de entorno en Vercel (Settings → Environment Variables)
-4. Deploy
-
-## Estructura
+## Estructura del proyecto
 
 ```
 src/
   app/
-    login/              -> pantalla de login
-    (app)/               -> rutas protegidas (sidebar + layout)
+    login/, signup/, forgot-password/, reset-password/   -> páginas públicas (sin sidebar)
+    (app)/                                                 -> todo lo que requiere estar logueado
       dashboard/
-      clientes/[id]/      -> Cliente 360
-      pipeline/
+      clientes/[id]/        -> Cliente 360 (ficha completa)
+      clientes/, prospectos/, ex-clientes/    -> 3 vistas de la misma tabla `clientes`, filtradas por tipo/estado
+      licitaciones/[id]/, licitaciones/
       tareas/
-      oportunidades/
+      resumen-dia/           -> registro rápido de contactos diarios + crear tareas de seguimiento
+      oportunidades/         -> alertas automáticas
+      comisiones/            -> histórico de comisiones, resumido por cliente y mes
       reportes/
-      importador/
+      importador/            -> carga masiva de Clientes, Patrimonio, Comisiones
+      usuarios/              -> solo Admin: crear/editar/eliminar usuarios y equipos
+    api/admin/                -> rutas de servidor para crear/eliminar usuarios (usan la service_role key)
   components/
-    ui/                  -> primitivos (button, card, table, tabs, badge, input)
-    layout/sidebar.tsx
-    crm/                 -> tablas, kanban, charts, importador
+    ui/                      -> primitivos (button, card, table, tabs, dialog, badge, input, select)
+    layout/                  -> sidebar, buscador global
+    crm/                     -> el resto de los componentes específicos del negocio
   lib/
-    supabase/            -> client.ts (browser), server.ts (server components)
-    types/                -> tipos TS que reflejan el schema
+    supabase/
+      client.ts              -> cliente de Supabase para componentes de navegador
+      server.ts               -> cliente de Supabase para Server Components (usa cookies)
+      admin.ts                -> cliente con la service_role key, SOLO se usa en rutas /api (servidor)
+      fetch-all.ts            -> helper para traer más de 1000 filas sin que Supabase las corte
+    types/                    -> tipos TS que reflejan el esquema de la base
 supabase/
-  schema.sql             -> CORRER ESTO PRIMERO en Supabase
-  seed.sql                -> datos de prueba opcionales
+  schema.sql                  -> esquema original completo (correr una sola vez, en un proyecto nuevo)
+  migration_v2.sql .. v10.sql  -> migraciones incrementales, correr en orden la primera vez
+  (otros .sql)                 -> scripts puntuales de carga de datos o arreglos (no son parte del esquema base)
 ```
 
-## Notas importantes
+---
 
-- El **histórico de patrimonio y movimientos nunca se sobrescribe** — cada importación inserta filas nuevas con su `fecha_carga`/`fecha`. El AUM "actual" en el dashboard toma la fecha más reciente.
-- Los **número de cuenta** son el campo puente entre `patrimonio`/`movimientos` y `cuentas` — si tu fuente de datos usa otro identificador, avisame y ajustamos.
-- RLS está escrito para que un FA solo vea lo suyo, un Manager vea lo de su equipo (`manager_id`), y Admin vea todo. Lo probé a nivel de policies SQL; cuando tengas más de un usuario real cargado, lo probamos juntos extremo a extremo.
+## Cómo levantarlo de cero (proyecto Supabase nuevo)
 
-## Credenciales de cuentas (anotar acá las que vayas creando)
+### 1. Crear proyecto en Supabase
+1. https://supabase.com → New Project
+2. SQL Editor → correr, **en este orden**, todo `supabase/schema.sql` y después cada `migration_v2.sql` a `migration_v10.sql`
+3. Authentication → Providers → dejar Email habilitado
 
-| Usuario | Email | Contraseña | Rol | Notas |
-|---|---|---|---|---|
-| Vos (Roberto) | avcharian1999@gmail.com | (la tuya) | Manager | Cuenta principal |
-| Admin nuevo | admin@titcrm.com | Admin1234 | Admin | Creado por script `reorganizar_usuarios.sql` |
-| Martina (prueba) | manager.test@titcrm.com | Test1234! | Admin (cambiado a mano) | Originalmente creada como Manager por `test_users.sql` |
-| FA 1 (prueba) | fa1.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
-| FA 2 (prueba) | fa2.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
-| FA 3 (prueba) | fa3.test@titcrm.com | Test1234! | FA | Puede ya no existir si corriste la limpieza |
+### 2. Crear tu usuario
+1. Authentication → Users → Add user → email + password, **tildar "Auto Confirm User"**
+2. SQL Editor:
+   ```sql
+   update public.usuarios set rol = 'admin' where email = 'tu@email.com';
+   ```
 
-**Importante**: este archivo queda en tu repo privado de GitHub, pero igual son contraseñas reales de acceso — si en algún momento compartís este repo con alguien más, cambiá las contraseñas antes.
+### 3. Crear el bucket de documentos
+1. Storage → New bucket → nombre `documentos-clientes` → **Private** (no tildar "Public bucket")
+2. Correr `supabase/migration_v3.sql` (políticas de ese bucket)
+
+### 4. Variables de entorno
+Copiá `.env.local.example` a `.env.local` y completá con los datos de Settings → API de tu proyecto:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (necesaria para crear/eliminar usuarios desde la pantalla de Usuarios)
+
+### 5. Local
+```bash
+npm install
+npm run dev
+```
+
+### 6. Deploy en Vercel
+1. Subir el código a un repo de GitHub (privado)
+2. Vercel → Add New → Project → importar el repo
+3. Agregar las mismas 3 variables de entorno
+4. Framework Preset: **Next.js**, Root Directory: vacío
+5. Deploy
+
+---
+
+## Roles y permisos
+
+| Rol | Ve |
+|---|---|
+| **FA** | Solo sus propios clientes, tareas, licitaciones |
+| **Manager** | Lo de su equipo (los FA con `manager_id` = él) |
+| **Admin** | Todo, sin filtro. Único rol que ve la pantalla **Usuarios** |
+
+Un "equipo" no es una entidad separada: es simplemente un Manager + los FA que tengan ese Manager asignado en su perfil (desde Usuarios). Esto se controla con Row Level Security directamente en la base — no es solo una restricción de la interfaz, está garantizado a nivel de base de datos.
+
+---
+
+## Modelo de datos — lo no obvio
+
+- **`clientes`**: una sola tabla para Clientes, Prospectos y Ex Clientes. Se diferencian por `tipo` (cliente/prospecto) y `estado` (activo/inactivo/perdido). Las 3 pantallas del menú son la misma tabla, filtrada distinto.
+- **`cuentas`**: una cuenta/comitente. No tiene un dueño único — para saber de quién es, hay que pasar por:
+- **`cuenta_titulares`**: tabla intermedia (cuenta_id, cliente_id). Una cuenta puede tener 1 o 2 titulares (cuentas mancomunadas). Para cualquier cálculo agregado (totales, Top, Pareto), si una cuenta tiene 2 titulares se divide el valor entre ambos para no duplicar el total. En la ficha individual de cada cliente (Cliente 360), en cambio, se muestra el valor completo de la cuenta (es lo correcto para esa vista).
+- **`patrimonio`**: histórico de AUM, nunca se sobrescribe — cada importación agrega una fila nueva con su fecha. El AUM "actual" siempre es el valor más reciente por cuenta.
+- **`comisiones`**: una fila por comitente/mes/año (puede haber varias filas para el mismo comitente en el mismo mes, se suman). `comitente = null` significa premio al asesor sin cliente asociado.
+- **Vistas `v_comisiones_*`**: pre-calculan sumas en la base en vez de traer todas las operaciones a la app. Si necesitás otro corte de comisiones que no esté cubierto, es mejor agregar una vista nueva que traer todo y sumar en el código.
+- **`historial_cliente`**: se llena solo, con un trigger, cada vez que cambia `tipo` o `estado` de un cliente.
+
+---
+
+## Decisiones de performance importantes
+
+- **Límite de 1000 filas de Supabase**: por defecto, cualquier consulta a la API de Supabase corta en 1000 filas, sin avisar. Para tablas que pueden crecer mucho (`comisiones`, `patrimonio`, `clientes` con el tiempo), el código usa `fetchAllRows()` (en `src/lib/supabase/fetch-all.ts`), que pagina automáticamente hasta traer todo. Cualquier consulta nueva a una tabla que pueda superar las 1000 filas algún día debería usar este helper.
+- **Comisiones agregadas en la base, no en el código**: Dashboard, Reportes y el módulo de Comisiones nunca traen las operaciones individuales — consultan vistas SQL que ya devuelven los totales sumados (`v_comisiones_por_mes`, `v_comisiones_por_cliente_mes`, `v_comisiones_sin_cliente_por_mes`). Esto evita traer miles de filas a la app solo para sumarlas.
+- **Búsqueda con debounce**: los buscadores de texto (Clientes, Prospectos, buscador global) no actualizan la URL ni disparan consultas en cada letra tipeada — esperan unos 300-400ms de pausa, así no se traba la escritura.
+
+---
+
+## Notas de UX/negocio
+
+- **Tipo de cliente vs Estado**: cambiar el Tipo (Prospecto a Cliente) desde la ficha mueve automáticamente a la persona de la sección Prospectos a Clientes (es la misma tabla, filtro distinto). Cambiar el Estado a "Perdido" la mueve a Ex Clientes.
+- **Plaza de la cuenta** (Local / BCI / StoneX / Pershing) determina si el AUM de esa cuenta cuenta como "Local" u "Offshore" en Reportes.
+- **Eliminar registros**: Clientes, Usuarios y Prospectos (al "Descartar") piden escribir ELIMINAR para confirmar. Cuentas tiene una confirmación más simple.
+- **Crear/eliminar usuarios** pasa por rutas de servidor (`/api/admin/*`) que usan la service_role key — esto es necesario porque crear un usuario desde el navegador con las claves normales cerraría la sesión del admin actual.
+
+---
+
+## Historial de migraciones (para entender el por qué de cada una)
+
+| Migración | Qué resuelve |
+|---|---|
+| v2 | Ficha de cliente completa (domicilio, compliance, etc.), comitente, comisiones, licitaciones |
+| v3 | Políticas de Storage para documentos por cliente |
+| v4 | Campo "Referenciado por" |
+| v5 | Flag "Trabajando" para prospectos |
+| v6 | Plaza/custodio en cuentas, historial automático de cambios |
+| v7 | Cuentas con múltiples titulares (`cuenta_titulares`) — antes una cuenta era de un solo cliente |
+| v8 | Arregla un bug de permisos al crear una cuenta nueva |
+| v9 | Vistas de comisiones pre-agregadas (evitar traer todo a la app) |
+| v10 | Corrige doble conteo de cuentas mancomunadas en las vistas de comisiones |
+
+---
+
+## Qué falta / ideas para más adelante
+
+- Importador de Movimientos (mismo patrón que Patrimonio y Comisiones)
+- Ranking de Managers/FAs (vista de equipo para Manager/Admin)
+- Login con Google
+- Buscador con resultados por relevancia en vez de solo "empieza con"

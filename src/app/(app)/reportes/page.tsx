@@ -49,13 +49,20 @@ export default async function ReportesPage() {
     if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
   });
 
-  // AUM por cliente — pasando por la tabla de titulares (una cuenta puede sumar a 2 clientes si es mancomunada)
+  // AUM por cliente — pasando por la tabla de titulares (si una cuenta es
+  // mancomunada, se divide entre la cantidad de titulares para que el total
+  // agregado no quede duplicado en Top/Pareto)
+  const titularesPorCuenta = new Map<string, number>();
+  titulares.forEach((t) => {
+    titularesPorCuenta.set(t.cuenta_id, (titularesPorCuenta.get(t.cuenta_id) ?? 0) + 1);
+  });
   const aumPorCliente = new Map<string, number>();
   titulares.forEach((t) => {
     const cuenta = cuentaPorId.get(t.cuenta_id);
     if (!cuenta) return;
     const aum = aumPorCuenta.get(cuenta.numero_cuenta) ?? 0;
-    aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum);
+    const cantidadTitulares = titularesPorCuenta.get(t.cuenta_id) ?? 1;
+    aumPorCliente.set(t.cliente_id, (aumPorCliente.get(t.cliente_id) ?? 0) + aum / cantidadTitulares);
   });
 
   const anioActual = new Date().getFullYear();

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { Upload, CheckCircle2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -98,9 +99,11 @@ export function ImportadorClientes() {
   }
 
   async function detectarDuplicados(filasActuales: FilaCliente[]) {
-    const { data: existentes } = await supabase.from("clientes").select("documento, email");
-    const documentosExistentes = new Set((existentes ?? []).map((e) => (e.documento ?? "").trim().toLowerCase()).filter(Boolean));
-    const emailsExistentes = new Set((existentes ?? []).map((e) => (e.email ?? "").trim().toLowerCase()).filter(Boolean));
+    const existentes = await fetchAllRows((from, to) =>
+      supabase.from("clientes").select("documento, email").range(from, to)
+    );
+    const documentosExistentes = new Set(existentes.map((e) => (e.documento ?? "").trim().toLowerCase()).filter(Boolean));
+    const emailsExistentes = new Set(existentes.map((e) => (e.email ?? "").trim().toLowerCase()).filter(Boolean));
 
     const vistosDoc = new Set<string>();
     const vistosEmail = new Set<string>();

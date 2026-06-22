@@ -12,7 +12,7 @@ import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const { data: clientes } = await supabase.from("clientes").select("*");
+  const clientes = await fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to));
   const { data: tareas } = await supabase
     .from("tareas")
     .select("*")
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
   );
 
-  const todosClientes = clientes ?? [];
+  const todosClientes = clientes;
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
   const prospectos = todosClientes.filter((c) => c.tipo === "prospecto" && c.estado === "activo");
 
