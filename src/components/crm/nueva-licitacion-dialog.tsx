@@ -19,6 +19,7 @@ export function NuevaLicitacionDialog() {
     fecha_licitacion: "",
     fecha_liquidacion: "",
     moneda_base: "USD",
+    arancel_pct: "",
   });
   const router = useRouter();
   const supabase = createClient();
@@ -34,7 +35,7 @@ export function NuevaLicitacionDialog() {
 
     const { data, error } = await supabase
       .from("licitaciones")
-      .insert({ ...form, owner_id: user?.id })
+      .insert({ ...form, arancel_pct: form.arancel_pct ? Number(form.arancel_pct) : null, owner_id: user?.id })
       .select()
       .single();
 
@@ -74,13 +75,25 @@ export function NuevaLicitacionDialog() {
               <Input type="date" value={form.fecha_liquidacion} onChange={(e) => setForm((f) => ({ ...f, fecha_liquidacion: e.target.value }))} />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Moneda base</label>
-            <SelectNative value={form.moneda_base} onChange={(e) => setForm((f) => ({ ...f, moneda_base: e.target.value }))}>
-              <option value="USD">USD</option>
-              <option value="USDC">USDC</option>
-              <option value="PESOS">PESOS</option>
-            </SelectNative>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Moneda base</label>
+              <SelectNative value={form.moneda_base} onChange={(e) => setForm((f) => ({ ...f, moneda_base: e.target.value }))}>
+                <option value="USD">USD</option>
+                <option value="USDC">USDC</option>
+                <option value="PESOS">PESOS</option>
+              </SelectNative>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Arancel %</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.arancel_pct}
+                onChange={(e) => setForm((f) => ({ ...f, arancel_pct: e.target.value }))}
+                placeholder="Ej: 1"
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

@@ -74,6 +74,7 @@ export interface Licitacion {
   fecha_licitacion: string | null;
   fecha_liquidacion: string | null;
   moneda_base: MonedaTipo;
+  arancel_pct: number | null;
   created_at: string;
 }
 

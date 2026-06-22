@@ -46,7 +46,7 @@ export default async function LicitacionDetailPage({ params }: { params: Promise
       <Card>
         <CardHeader><CardTitle>Órdenes por cliente</CardTitle></CardHeader>
         <CardContent>
-          <OrdenesTable licitacionId={id} ordenes={rows} clientes={clientes ?? []} monedaBase={licitacion.moneda_base} />
+          <OrdenesTable licitacionId={id} ordenes={rows} clientes={clientes ?? []} monedaBase={licitacion.moneda_base} arancelPct={licitacion.arancel_pct} />
         </CardContent>
       </Card>
     </div>

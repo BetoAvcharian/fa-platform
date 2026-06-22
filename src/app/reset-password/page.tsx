@@ -1,4 +1,5 @@
 "use client";
+import { Logo } from "@/components/ui/logo";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -34,7 +35,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-foreground font-semibold">
-            TIT
+            <Logo className="h-6 w-6 text-accent-foreground" />
           </div>
           <h1 className="text-lg font-semibold text-sidebar-foreground">Elegí tu nueva contraseña</h1>
         </div>

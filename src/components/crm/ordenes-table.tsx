@@ -38,17 +38,28 @@ export function OrdenesTable({
   ordenes,
   clientes,
   monedaBase,
+  arancelPct,
 }: {
   licitacionId: string;
   ordenes: OrdenRow[];
   clientes: ClienteOption[];
   monedaBase: MonedaTipo;
+  arancelPct: number | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [nueva, setNueva] = useState({ cliente_id: "", comitente: "", monto: "", moneda: monedaBase, comentario: "" });
   const [guardando, setGuardando] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  const [editandoArancel, setEditandoArancel] = useState(false);
+  const [arancelTemp, setArancelTemp] = useState(String(arancelPct ?? ""));
+
+  async function guardarArancel() {
+    setEditandoArancel(false);
+    const valor = arancelTemp ? Number(arancelTemp) : null;
+    await supabase.from("licitaciones").update({ arancel_pct: valor }).eq("id", licitacionId);
+    router.refresh();
+  }
 
   async function agregarOrden() {
     if (!nueva.cliente_id || !nueva.monto) {
@@ -126,7 +137,7 @@ export function OrdenesTable({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Confirmado + Cargado</p>
@@ -137,6 +148,33 @@ export function OrdenesTable({
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total Tentativo</p>
             <p className="mt-1 text-xl font-semibold text-warning">{formatUSD(totalTentativo)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Comisión estimada</p>
+              {!editandoArancel ? (
+                <button onClick={() => { setArancelTemp(String(arancelPct ?? "")); setEditandoArancel(true); }} className="text-xs text-accent hover:underline">
+                  Arancel: {arancelPct ?? "—"}%
+                </button>
+              ) : (
+                <input
+                  autoFocus
+                  type="number"
+                  step="0.01"
+                  value={arancelTemp}
+                  onChange={(e) => setArancelTemp(e.target.value)}
+                  onBlur={guardarArancel}
+                  onKeyDown={(e) => e.key === "Enter" && guardarArancel()}
+                  placeholder="% arancel"
+                  className="h-6 w-20 rounded border border-border bg-background px-1 text-xs"
+                />
+              )}
+            </div>
+            <p className="mt-1 text-xl font-semibold text-accent">
+              {arancelPct ? formatUSD(totalConfirmadoCargado * (arancelPct / 100)) : "—"}
+            </p>
           </CardContent>
         </Card>
       </div>
