@@ -7,19 +7,20 @@ import { NuevoClienteDialog } from "@/components/crm/nuevo-cliente-dialog";
 export default async function ClientesPage() {
   const supabase = await createClient();
 
-  const { data: clientes } = await supabase
-    .from("clientes")
-    .select("*, usuarios:owner_id (nombre, apellido)")
-    .eq("tipo", "cliente")
-    .eq("estado", "activo")
-    .order("created_at", { ascending: false });
-
-  const titulares = await fetchAllRows((from, to) =>
-    supabase.from("cuenta_titulares").select("cliente_id, cuenta_id, cuentas:cuenta_id (numero_cuenta)").range(from, to)
-  );
-  const patrimonio = await fetchAllRows((from, to) =>
-    supabase.from("patrimonio").select("numero_cuenta, aum, fecha_carga").order("fecha_carga", { ascending: false }).range(from, to)
-  );
+  const [{ data: clientes }, titulares, patrimonio] = await Promise.all([
+    supabase
+      .from("clientes")
+      .select("*, usuarios:owner_id (nombre, apellido)")
+      .eq("tipo", "cliente")
+      .eq("estado", "activo")
+      .order("created_at", { ascending: false }),
+    fetchAllRows((from, to) =>
+      supabase.from("cuenta_titulares").select("cliente_id, cuenta_id, cuentas:cuenta_id (numero_cuenta)").range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("patrimonio").select("numero_cuenta, aum, fecha_carga").order("fecha_carga", { ascending: false }).range(from, to)
+    ),
+  ]);
 
   const aumPorCuenta = new Map<string, number>();
   patrimonio.forEach((p) => {

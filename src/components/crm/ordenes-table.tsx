@@ -27,10 +27,10 @@ const ESTADO_TONE: Record<LicitacionEstadoOrden, "default" | "success" | "warnin
 };
 
 const ESTADO_BG: Record<LicitacionEstadoOrden, string> = {
-  tentativo: "bg-warning/10",
+  tentativo: "bg-warning/15",
   confirmada: "bg-success/10",
-  cargada: "bg-accent/10",
-  cancelada: "bg-danger/5 opacity-60",
+  cargada: "bg-success/35",
+  cancelada: "bg-danger/15",
 };
 
 export function OrdenesTable({

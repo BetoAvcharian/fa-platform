@@ -23,23 +23,34 @@ function buildPareto(items: { nombre: string; valor: number }[]) {
 export default async function ReportesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: usuario } = await supabase.from("usuarios").select("rol").eq("id", user?.id).single();
 
-  const clientes = await fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to));
-  const cuentas = await fetchAllRows((from, to) => supabase.from("cuentas").select("*").range(from, to));
-  const titulares = await fetchAllRows((from, to) => supabase.from("cuenta_titulares").select("*").range(from, to));
-  const patrimonio = await fetchAllRows((from, to) =>
-    supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false }).range(from, to)
-  );
-  const comisionesPorClienteMes = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_por_cliente_mes").select("cliente_id, periodo_mes, periodo_anio, total").range(from, to)
-  );
-  const comisionesPorMesTotal = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
-  );
-  const comisionesPorComitenteMes = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_por_comitente_mes").select("comitente, periodo_mes, periodo_anio, total").range(from, to)
-  );
+  const [
+    { data: usuario },
+    clientes,
+    cuentas,
+    titulares,
+    patrimonio,
+    comisionesPorClienteMes,
+    comisionesPorMesTotal,
+    comisionesPorComitenteMes,
+  ] = await Promise.all([
+    supabase.from("usuarios").select("rol").eq("id", user?.id).single(),
+    fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to)),
+    fetchAllRows((from, to) => supabase.from("cuentas").select("*").range(from, to)),
+    fetchAllRows((from, to) => supabase.from("cuenta_titulares").select("*").range(from, to)),
+    fetchAllRows((from, to) =>
+      supabase.from("patrimonio").select("*").order("fecha_carga", { ascending: false }).range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_cliente_mes").select("cliente_id, periodo_mes, periodo_anio, total").range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_comitente_mes").select("comitente, periodo_mes, periodo_anio, total").range(from, to)
+    ),
+  ]);
 
   const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
 

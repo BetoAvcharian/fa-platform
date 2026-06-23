@@ -24,6 +24,7 @@ import {
   UserCog,
   NotebookPen,
   Receipt,
+  TrendingUp,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
@@ -45,6 +46,7 @@ const NAV_GROUPS = [
     { href: "/oportunidades", label: "Oportunidades", icon: Bell },
   ],
   [
+    { href: "/patrimonio", label: "Patrimonio", icon: TrendingUp },
     { href: "/comisiones", label: "Comisiones", icon: Receipt },
     { href: "/reportes", label: "Reportes", icon: BarChart3 },
   ],

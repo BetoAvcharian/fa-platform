@@ -12,6 +12,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { WhatsappButton } from "@/components/crm/whatsapp-button";
 import { AgregarCuentaDialog } from "@/components/crm/agregar-cuenta-dialog";
 import { EditarCuentaDialog } from "@/components/crm/editar-cuenta-dialog";
+import { ActualizarSaldoDialog } from "@/components/crm/actualizar-saldo-dialog";
 import { EliminarClienteDialog } from "@/components/crm/eliminar-cliente-dialog";
 import { PLAZAS } from "@/lib/types";
 
@@ -19,56 +20,45 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: cliente } = await supabase.from("clientes").select("*").eq("id", id).single();
+  const [{ data: cliente }, { data: cuentaTitulares }, { data: interacciones }, { data: tareas }, { data: historial }] =
+    await Promise.all([
+      supabase.from("clientes").select("*").eq("id", id).single(),
+      supabase.from("cuenta_titulares").select("rol_titular, cuentas:cuenta_id (*)").eq("cliente_id", id),
+      supabase.from("interacciones").select("*").eq("cliente_id", id).order("fecha", { ascending: false }),
+      supabase.from("tareas").select("*").eq("cliente_id", id).order("fecha_vencimiento", { ascending: true }),
+      supabase.from("historial_cliente").select("*, usuarios:usuario_id (nombre, apellido)").eq("cliente_id", id).order("fecha", { ascending: false }),
+    ]);
   if (!cliente) notFound();
 
-  const { data: cuentaTitulares } = await supabase
-    .from("cuenta_titulares")
-    .select("rol_titular, cuentas:cuenta_id (*)")
-    .eq("cliente_id", id);
   const cuentas = (cuentaTitulares ?? []).map((ct: any) => ({ ...ct.cuentas, rol_titular: ct.rol_titular }));
-  const numerosCuenta = (cuentas ?? []).map((c) => c.numero_cuenta);
+  const numerosCuenta = cuentas.map((c) => c.numero_cuenta);
+  const cuentaIds = cuentas.map((c: any) => c.id);
 
-  // otros titulares de las mismas cuentas (para mostrar "cotitular con...")
-  const cuentaIds = (cuentas ?? []).map((c: any) => c.id);
-  const { data: otrosTitulares } = cuentaIds.length
-    ? await supabase
-        .from("cuenta_titulares")
-        .select("cuenta_id, clientes:cliente_id (id, nombre, apellido)")
-        .in("cuenta_id", cuentaIds)
-        .neq("cliente_id", id)
-    : { data: [] as any[] };
+  const hoy = new Date();
+  let mesAnterior = hoy.getMonth(); // 0-indexed; mes pasado cerrado
+  let anioAnterior = hoy.getFullYear();
+  if (mesAnterior === 0) { mesAnterior = 12; anioAnterior -= 1; }
 
-  const { data: kycRows } = await supabase
-    .from("kyc")
-    .select("*, cuentas:cuenta_id(numero_cuenta)")
-    .in("cuenta_id", (cuentas ?? []).map((c) => c.id));
-
-  const { data: interacciones } = await supabase
-    .from("interacciones")
-    .select("*")
-    .eq("cliente_id", id)
-    .order("fecha", { ascending: false });
-
-  const { data: tareas } = await supabase
-    .from("tareas")
-    .select("*")
-    .eq("cliente_id", id)
-    .order("fecha_vencimiento", { ascending: true });
-
-  const { data: patrimonio } = numerosCuenta.length
-    ? await supabase
-        .from("patrimonio")
-        .select("*")
-        .in("numero_cuenta", numerosCuenta)
-        .order("fecha_carga", { ascending: false })
-    : { data: [] as any[] };
+  const [{ data: otrosTitulares }, { data: kycRows }, { data: patrimonio }, { data: comisionesCuentas }] = await Promise.all([
+    cuentaIds.length
+      ? supabase.from("cuenta_titulares").select("cuenta_id, clientes:cliente_id (id, nombre, apellido)").in("cuenta_id", cuentaIds).neq("cliente_id", id)
+      : Promise.resolve({ data: [] as any[] }),
+    cuentaIds.length
+      ? supabase.from("kyc").select("*, cuentas:cuenta_id(numero_cuenta)").in("cuenta_id", cuentaIds)
+      : Promise.resolve({ data: [] as any[] }),
+    numerosCuenta.length
+      ? supabase.from("patrimonio").select("*").in("numero_cuenta", numerosCuenta).order("fecha_carga", { ascending: false })
+      : Promise.resolve({ data: [] as any[] }),
+    numerosCuenta.length
+      ? supabase.from("comisiones").select("*").in("comitente", numerosCuenta).eq("periodo_mes", mesAnterior).eq("periodo_anio", anioAnterior)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const aumTotal = (patrimonio ?? [])
     .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
     .reduce((sum, p) => sum + Number(p.aum), 0);
 
-  const cuentasLocales = new Set((cuentas ?? []).filter((c) => c.plaza === "local").map((c) => c.numero_cuenta));
+  const cuentasLocales = new Set(cuentas.filter((c) => c.plaza === "local").map((c) => c.numero_cuenta));
   const aumLocal = (patrimonio ?? [])
     .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
     .filter((p) => cuentasLocales.has(p.numero_cuenta))
@@ -80,31 +70,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     if (!aumPorCuentaIndividual.has(p.numero_cuenta)) aumPorCuentaIndividual.set(p.numero_cuenta, Number(p.aum));
   });
 
-  const hoy = new Date();
-  let mesAnterior = hoy.getMonth(); // 0-indexed; mes pasado cerrado
-  let anioAnterior = hoy.getFullYear();
-  if (mesAnterior === 0) { mesAnterior = 12; anioAnterior -= 1; }
-
-  const { data: comisionesCuentas } = numerosCuenta.length
-    ? await supabase
-        .from("comisiones")
-        .select("*")
-        .in("comitente", numerosCuenta)
-        .eq("periodo_mes", mesAnterior)
-        .eq("periodo_anio", anioAnterior)
-    : { data: [] as any[] };
-
   const comisionPorCuenta = new Map<string, number>();
   (comisionesCuentas ?? []).forEach((com) => {
     if (!com.comitente) return;
     comisionPorCuenta.set(com.comitente, (comisionPorCuenta.get(com.comitente) ?? 0) + Number(com.monto));
   });
-
-  const { data: historial } = await supabase
-    .from("historial_cliente")
-    .select("*, usuarios:usuario_id (nombre, apellido)")
-    .eq("cliente_id", id)
-    .order("fecha", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -184,7 +154,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                           </Link>
                         ) : "—"}
                       </TD>
-                      <TD><EditarCuentaDialog cuenta={cu} /></TD>
+                      <TD>
+                        <div className="flex">
+                          <ActualizarSaldoDialog numeroCuenta={cu.numero_cuenta} aumActual={aumPorCuentaIndividual.get(cu.numero_cuenta) ?? 0} />
+                          <EditarCuentaDialog cuenta={cu} />
+                        </div>
+                      </TD>
                     </TR>
                   );
                 })}

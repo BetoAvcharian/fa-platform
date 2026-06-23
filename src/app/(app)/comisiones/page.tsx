@@ -8,15 +8,17 @@ export default async function ComisionesPage() {
   // Estas tres consultas ya vienen sumadas desde la base (vistas SQL),
   // nunca traen las miles de operaciones individuales a la app.
   // Igual las pedimos paginadas por si algún día el resumen mismo supera 1000 filas.
-  const porClienteMes = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_por_cliente_mes").select("cliente_id, periodo_mes, periodo_anio, total, operaciones").range(from, to)
-  );
-  const sinCliente = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_sin_cliente_por_mes").select("periodo_mes, periodo_anio, total, operaciones").range(from, to)
-  );
-  const clientesInfo = await fetchAllRows((from, to) =>
-    supabase.from("clientes").select("id, nombre, apellido").range(from, to)
-  );
+  const [porClienteMes, sinCliente, clientesInfo] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_cliente_mes").select("cliente_id, periodo_mes, periodo_anio, total, operaciones").range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_sin_cliente_por_mes").select("periodo_mes, periodo_anio, total, operaciones").range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("clientes").select("id, nombre, apellido").range(from, to)
+    ),
+  ]);
 
   const nombrePorClienteId = new Map(clientesInfo.map((c) => [c.id, `${c.nombre} ${c.apellido ?? ""}`.trim()]));
 

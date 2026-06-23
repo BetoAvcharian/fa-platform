@@ -12,21 +12,17 @@ import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const clientes = await fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to));
-  const { data: tareas } = await supabase
-    .from("tareas")
-    .select("*")
-    .neq("estado", "completada");
-  const patrimonio = await fetchAllRows((from, to) =>
-    supabase.from("patrimonio").select("fecha_carga, aum").order("fecha_carga", { ascending: true }).range(from, to)
-  );
-  const { data: licitaciones } = await supabase
-    .from("licitaciones")
-    .select("*")
-    .order("fecha_licitacion", { ascending: true });
-  const comisionesPorMesRaw = await fetchAllRows((from, to) =>
-    supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
-  );
+  const [clientes, { data: tareas }, patrimonio, { data: licitaciones }, comisionesPorMesRaw] = await Promise.all([
+    fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to)),
+    supabase.from("tareas").select("*").neq("estado", "completada"),
+    fetchAllRows((from, to) =>
+      supabase.from("patrimonio").select("fecha_carga, aum").order("fecha_carga", { ascending: true }).range(from, to)
+    ),
+    supabase.from("licitaciones").select("*").order("fecha_licitacion", { ascending: true }),
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
+    ),
+  ]);
 
   const todosClientes = clientes;
   const activos = todosClientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
