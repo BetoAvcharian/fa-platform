@@ -26,7 +26,6 @@ export function UsuariosTable({ usuarios, miPropioId }: { usuarios: UsuarioRow[]
   const router = useRouter();
   const supabase = createClient();
   const [paraEliminar, setParaEliminar] = useState<{ id: string; nombre: string } | null>(null);
-  const [confirmacion, setConfirmacion] = useState("");
   const [eliminando, setEliminando] = useState(false);
 
   const managers = usuarios.filter((u) => u.rol === "manager" || u.rol === "admin");
@@ -77,7 +76,6 @@ export function UsuariosTable({ usuarios, miPropioId }: { usuarios: UsuarioRow[]
     }
     toast.success("Usuario eliminado");
     setParaEliminar(null);
-    setConfirmacion("");
     router.refresh();
   }
 
@@ -133,18 +131,17 @@ export function UsuariosTable({ usuarios, miPropioId }: { usuarios: UsuarioRow[]
         </TBody>
       </Table>
 
-      <Dialog open={!!paraEliminar} onOpenChange={(o) => { if (!o) { setParaEliminar(null); setConfirmacion(""); } }}>
+      <Dialog open={!!paraEliminar} onOpenChange={(o) => { if (!o) setParaEliminar(null); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Eliminar a {paraEliminar?.nombre}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Esto borra el acceso de esta persona definitivamente, no se puede deshacer. Escribí <strong>ELIMINAR</strong> para confirmar.
+              Esto borra el acceso de esta persona definitivamente, no se puede deshacer. ¿Confirmás?
             </p>
-            <Input value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} placeholder="ELIMINAR" />
             <div className="flex justify-end gap-2 border-t border-border pt-3">
-              <Button variant="outline" onClick={() => { setParaEliminar(null); setConfirmacion(""); }}>Cancelar</Button>
-              <Button variant="destructive" disabled={confirmacion !== "ELIMINAR" || eliminando} onClick={confirmarEliminar}>
-                {eliminando ? "Eliminando..." : "Eliminar definitivamente"}
+              <Button variant="outline" onClick={() => setParaEliminar(null)}>Cancelar</Button>
+              <Button variant="destructive" disabled={eliminando} onClick={confirmarEliminar}>
+                {eliminando ? "Eliminando..." : "Sí, eliminar"}
               </Button>
             </div>
           </div>

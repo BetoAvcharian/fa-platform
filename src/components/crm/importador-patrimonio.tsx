@@ -18,6 +18,7 @@ interface FilaPatrimonio {
 
 export function ImportadorPatrimonio() {
   const [filas, setFilas] = useState<FilaPatrimonio[]>([]);
+  const [fechaCarga, setFechaCarga] = useState(new Date().toISOString().slice(0, 10));
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const supabase = createClient();
@@ -66,9 +67,8 @@ export function ImportadorPatrimonio() {
 
   async function confirmarImportacion() {
     setGuardando(true);
-    const hoy = new Date().toISOString().slice(0, 10);
     const registros = filas.map((f) => ({
-      fecha_carga: hoy,
+      fecha_carga: fechaCarga,
       numero_cuenta: String(f.NumeroCuenta),
       aum: Number(f.AUM) || 0,
       cash: Number(f.Cash) || 0,
@@ -98,6 +98,15 @@ export function ImportadorPatrimonio() {
             <code className="text-xs"> AUM</code>, <code className="text-xs">Cash</code>.
             Cada carga se guarda como un nuevo punto histórico — nunca se sobrescribe lo anterior.
           </p>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Fecha de cierre que representa este archivo</label>
+            <input
+              type="date"
+              value={fechaCarga}
+              onChange={(e) => setFechaCarga(e.target.value)}
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
           <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-3 text-sm hover:bg-muted">
             <Upload className="h-4 w-4" />
             Elegir archivo Excel (.xlsx)

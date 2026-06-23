@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD, diasDesde } from "@/lib/utils";
 import { Loader2, CheckCircle2, Download, XCircle, ArrowUpCircle, ArrowUp, ArrowDown } from "lucide-react";
@@ -41,7 +42,6 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
   }, [search]);
 
   const [paraDescartar, setParaDescartar] = useState<{ id: string; nombre: string } | null>(null);
-  const [confirmacion, setConfirmacion] = useState("");
   const [descartando, setDescartando] = useState(false);
 
   function updateParams(updates: Record<string, string>) {
@@ -98,10 +98,10 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
     const { error } = await supabase.from("clientes").delete().eq("id", paraDescartar.id);
     setDescartando(false);
     if (error) {
+      toast.error("Error al eliminar: " + error.message);
       return;
     }
     setParaDescartar(null);
-    setConfirmacion("");
     router.refresh();
   }
 
@@ -196,18 +196,17 @@ export function ProspectosTable({ prospectos }: { prospectos: ProspectoRow[] }) 
         </TBody>
       </Table>
 
-      <Dialog open={!!paraDescartar} onOpenChange={(o) => { if (!o) { setParaDescartar(null); setConfirmacion(""); } }}>
+      <Dialog open={!!paraDescartar} onOpenChange={(o) => { if (!o) setParaDescartar(null); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Descartar a {paraDescartar?.nombre}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Esto borra el prospecto definitivamente, no se puede deshacer. Escribí <strong>ELIMINAR</strong> para confirmar.
+              Esto borra el prospecto definitivamente, no se puede deshacer. ¿Confirmás?
             </p>
-            <Input value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} placeholder="ELIMINAR" />
             <div className="flex justify-end gap-2 border-t border-border pt-3">
-              <Button variant="outline" onClick={() => { setParaDescartar(null); setConfirmacion(""); }}>Cancelar</Button>
-              <Button variant="destructive" disabled={confirmacion !== "ELIMINAR" || descartando} onClick={confirmarDescarte}>
-                {descartando ? "Borrando..." : "Descartar definitivamente"}
+              <Button variant="outline" onClick={() => setParaDescartar(null)}>Cancelar</Button>
+              <Button variant="destructive" disabled={descartando} onClick={confirmarDescarte}>
+                {descartando ? "Borrando..." : "Sí, descartar"}
               </Button>
             </div>
           </div>

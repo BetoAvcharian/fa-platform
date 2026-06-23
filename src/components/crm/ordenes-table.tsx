@@ -39,12 +39,14 @@ export function OrdenesTable({
   clientes,
   monedaBase,
   arancelPct,
+  cuentasPorCliente,
 }: {
   licitacionId: string;
   ordenes: OrdenRow[];
   clientes: ClienteOption[];
   monedaBase: MonedaTipo;
   arancelPct: number | null;
+  cuentasPorCliente: Record<string, string[]>;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -53,6 +55,14 @@ export function OrdenesTable({
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [editandoArancel, setEditandoArancel] = useState(false);
   const [arancelTemp, setArancelTemp] = useState(String(arancelPct ?? ""));
+
+  const cuentasDelClienteElegido = cuentasPorCliente[nueva.cliente_id] ?? [];
+
+  function elegirCliente(id: string) {
+    const cuentas = cuentasPorCliente[id] ?? [];
+    // si tiene una sola cuenta, se completa sola; si tiene 2+, queda para elegir; si no tiene, queda libre
+    setNueva((f) => ({ ...f, cliente_id: id, comitente: cuentas.length === 1 ? cuentas[0] : "" }));
+  }
 
   async function guardarArancel() {
     setEditandoArancel(false);
@@ -91,11 +101,21 @@ export function OrdenesTable({
   }
 
   async function actualizarComentario(id: string, comentario: string) {
-    await supabase.from("licitacion_ordenes").update({ comentario }).eq("id", id);
+    const { error } = await supabase.from("licitacion_ordenes").update({ comentario }).eq("id", id);
+    if (error) {
+      toast.error("No se guardó el comentario: " + error.message);
+      return;
+    }
+    router.refresh();
   }
 
   async function actualizarComitente(id: string, comitente: string) {
-    await supabase.from("licitacion_ordenes").update({ comitente: comitente || null }).eq("id", id);
+    const { error } = await supabase.from("licitacion_ordenes").update({ comitente: comitente || null }).eq("id", id);
+    if (error) {
+      toast.error("No se guardó el comitente: " + error.message);
+      return;
+    }
+    router.refresh();
   }
 
   async function eliminar(id: string) {
@@ -241,18 +261,29 @@ export function OrdenesTable({
               <ClienteCombobox
                 clientes={clientes}
                 value={nueva.cliente_id}
-                onChange={(id) => setNueva((f) => ({ ...f, cliente_id: id }))}
+                onChange={elegirCliente}
                 placeholder="Elegir cliente..."
                 permitirVacio={false}
               />
             </TD>
             <TD>
-              <Input
-                value={nueva.comitente}
-                onChange={(e) => setNueva((f) => ({ ...f, comitente: e.target.value }))}
-                className="h-8 w-28"
-                placeholder="Comitente"
-              />
+              {cuentasDelClienteElegido.length >= 2 ? (
+                <SelectNative
+                  value={nueva.comitente}
+                  onChange={(e) => setNueva((f) => ({ ...f, comitente: e.target.value }))}
+                  className="h-8 w-32"
+                >
+                  <option value="">Elegir cuenta...</option>
+                  {cuentasDelClienteElegido.map((c) => <option key={c} value={c}>{c}</option>)}
+                </SelectNative>
+              ) : (
+                <Input
+                  value={nueva.comitente}
+                  onChange={(e) => setNueva((f) => ({ ...f, comitente: e.target.value }))}
+                  className="h-8 w-28"
+                  placeholder="Comitente"
+                />
+              )}
             </TD>
             <TD>
               <Input type="number" value={nueva.monto} onChange={(e) => setNueva((f) => ({ ...f, monto: e.target.value }))} className="h-8 w-28" placeholder="Monto" />

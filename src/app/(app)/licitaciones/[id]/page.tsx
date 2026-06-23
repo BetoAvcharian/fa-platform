@@ -20,6 +20,18 @@ export default async function LicitacionDetailPage({ params }: { params: Promise
 
   const { data: clientes } = await supabase.from("clientes").select("id, nombre, apellido").order("nombre");
 
+  const { data: titulares } = await supabase
+    .from("cuenta_titulares")
+    .select("cliente_id, cuentas:cuenta_id (numero_cuenta)");
+
+  const cuentasPorCliente: Record<string, string[]> = {};
+  (titulares ?? []).forEach((t: any) => {
+    const numero = t.cuentas?.numero_cuenta;
+    if (!numero) return;
+    if (!cuentasPorCliente[t.cliente_id]) cuentasPorCliente[t.cliente_id] = [];
+    cuentasPorCliente[t.cliente_id].push(numero);
+  });
+
   const rows = (ordenes ?? []).map((o: any) => ({
     ...o,
     cliente_nombre: o.clientes ? `${o.clientes.nombre} ${o.clientes.apellido ?? ""}` : "—",
@@ -46,7 +58,7 @@ export default async function LicitacionDetailPage({ params }: { params: Promise
       <Card>
         <CardHeader><CardTitle>Órdenes por cliente</CardTitle></CardHeader>
         <CardContent>
-          <OrdenesTable licitacionId={id} ordenes={rows} clientes={clientes ?? []} monedaBase={licitacion.moneda_base} arancelPct={licitacion.arancel_pct} />
+          <OrdenesTable licitacionId={id} ordenes={rows} clientes={clientes ?? []} monedaBase={licitacion.moneda_base} arancelPct={licitacion.arancel_pct} cuentasPorCliente={cuentasPorCliente} />
         </CardContent>
       </Card>
     </div>
