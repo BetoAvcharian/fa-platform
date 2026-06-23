@@ -37,6 +37,9 @@ export default async function ReportesPage() {
   const comisionesPorMesTotal = await fetchAllRows((from, to) =>
     supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
   );
+  const comisionesPorComitenteMes = await fetchAllRows((from, to) =>
+    supabase.from("v_comisiones_por_comitente_mes").select("comitente, periodo_mes, periodo_anio, total").range(from, to)
+  );
 
   const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
 
@@ -115,6 +118,33 @@ export default async function ReportesPage() {
   );
   const paretoComision = buildPareto(
     clientes.map((c) => ({ nombre: `${c.nombre} ${c.apellido ?? ""}`.trim(), valor: comisionPorCliente.get(c.id) ?? 0 }))
+  );
+
+  // --- VISTA POR CUENTA (comitente) — sin dividir entre cotitulares ---
+  const comisionPorComitente = new Map<string, number>();
+  comisionesPorComitenteMes
+    .filter((c) => c.periodo_anio === anioActual)
+    .forEach((c) => {
+      comisionPorComitente.set(c.comitente, (comisionPorComitente.get(c.comitente) ?? 0) + Number(c.total));
+    });
+
+  const topCuentasAum = cuentas
+    .map((cu) => ({ comitente: cu.numero_cuenta, plaza: cu.plaza, aum: aumPorCuenta.get(cu.numero_cuenta) ?? 0 }))
+    .filter((c) => c.aum > 0)
+    .sort((a, b) => b.aum - a.aum)
+    .slice(0, 10);
+
+  const topCuentasComision = cuentas
+    .map((cu) => ({ comitente: cu.numero_cuenta, plaza: cu.plaza, comision: comisionPorComitente.get(cu.numero_cuenta) ?? 0 }))
+    .filter((c) => c.comision > 0)
+    .sort((a, b) => b.comision - a.comision)
+    .slice(0, 10);
+
+  const paretoCuentasAum = buildPareto(
+    cuentas.map((cu) => ({ nombre: cu.numero_cuenta, valor: aumPorCuenta.get(cu.numero_cuenta) ?? 0 }))
+  );
+  const paretoCuentasComision = buildPareto(
+    cuentas.map((cu) => ({ nombre: cu.numero_cuenta, valor: comisionPorComitente.get(cu.numero_cuenta) ?? 0 }))
   );
 
   return (
@@ -199,6 +229,72 @@ export default async function ReportesPage() {
             <TopComisionTable filas={topComision} />
           </CardContent>
         </Card>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold">Por Cuenta (Comitente)</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Vista sin dividir entre cotitulares — cada cuenta cuenta una sola vez, con su valor completo.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4">
+          <Card>
+            <CardHeader><CardTitle>Pareto — AUM por cuenta (80/20)</CardTitle></CardHeader>
+            <CardContent>
+              {paretoCuentasAum.length > 0 ? <ParetoChart data={paretoCuentasAum} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin datos de AUM.</p>}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Pareto — Comisión YTD por cuenta (80/20)</CardTitle></CardHeader>
+            <CardContent>
+              {paretoCuentasComision.length > 0 ? <ParetoChart data={paretoCuentasComision} /> : <p className="py-10 text-center text-sm text-muted-foreground">Sin comisiones cargadas.</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Top cuentas por AUM</CardTitle>
+              <ExportExcelButton
+                data={topCuentasAum.map((c) => ({ Comitente: c.comitente, Plaza: c.plaza, AUM: c.aum }))}
+                filename="top_cuentas_aum.xlsx"
+              />
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <THead><TR><TH>Comitente</TH><TH>Plaza</TH><TH>AUM</TH></TR></THead>
+                <TBody>
+                  {topCuentasAum.map((c) => (
+                    <TR key={c.comitente}><TD className="tabular">{c.comitente}</TD><TD className="capitalize">{c.plaza}</TD><TD className="tabular">{formatUSD(c.aum)}</TD></TR>
+                  ))}
+                  {topCuentasAum.length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Sin datos de patrimonio.</TD></TR>}
+                </TBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Top cuentas por comisión YTD</CardTitle>
+              <ExportExcelButton
+                data={topCuentasComision.map((c) => ({ Comitente: c.comitente, Plaza: c.plaza, ComisionUSD: c.comision }))}
+                filename="top_cuentas_comision.xlsx"
+              />
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <THead><TR><TH>Comitente</TH><TH>Plaza</TH><TH>Comisión</TH></TR></THead>
+                <TBody>
+                  {topCuentasComision.map((c) => (
+                    <TR key={c.comitente}><TD className="tabular">{c.comitente}</TD><TD className="capitalize">{c.plaza}</TD><TD className="tabular">{formatUSD(c.comision)}</TD></TR>
+                  ))}
+                  {topCuentasComision.length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Sin comisiones cargadas.</TD></TR>}
+                </TBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

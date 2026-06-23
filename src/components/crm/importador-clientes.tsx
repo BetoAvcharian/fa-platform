@@ -167,15 +167,14 @@ export function ImportadorClientes() {
 
     let totalCuentas = 0;
     for (const c of cuentasParaInsertar) {
-      const { data: cuentaCreada, error: errorCuenta } = await supabase
+      const nuevoId = crypto.randomUUID();
+      const { error: errorCuenta } = await supabase
         .from("cuentas")
-        .insert({ numero_cuenta: c.numero_cuenta, estado_cuenta: c.estado_cuenta })
-        .select("id")
-        .single();
-      if (errorCuenta || !cuentaCreada) continue;
+        .insert({ id: nuevoId, numero_cuenta: c.numero_cuenta, estado_cuenta: c.estado_cuenta });
+      if (errorCuenta) continue; // probablemente ya existía esa cuenta (comitente duplicado), se omite
       const { error: errorTitular } = await supabase
         .from("cuenta_titulares")
-        .insert({ cuenta_id: cuentaCreada.id, cliente_id: c.clienteIdTemp, rol_titular: "titular" });
+        .insert({ cuenta_id: nuevoId, cliente_id: c.clienteIdTemp, rol_titular: "titular" });
       if (!errorTitular) totalCuentas++;
     }
 

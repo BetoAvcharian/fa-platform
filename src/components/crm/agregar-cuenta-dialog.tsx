@@ -43,16 +43,16 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
     let esCotitular = !!existente;
 
     if (!cuentaId) {
-      const { data: cuentaCreada, error } = await supabase
+      const nuevoId = crypto.randomUUID();
+      const { error } = await supabase
         .from("cuentas")
         .insert({
+          id: nuevoId,
           numero_cuenta: numeroCuenta,
           tipo_cuenta: tipoCuenta || null,
           plaza,
           estado_cuenta: "activa",
-        })
-        .select("id")
-        .single();
+        });
 
       if (error) {
         // si falló por choque con el número único, es que la cuenta YA existe
@@ -76,8 +76,9 @@ export function AgregarCuentaDialog({ clienteId }: { clienteId: string }) {
           toast.error("Error: " + error.message);
           return;
         }
-      } else if (cuentaCreada) {
-        cuentaId = cuentaCreada.id;
+      } else {
+        // no hace falta volver a leerla: ya sabemos el id porque lo generamos nosotros
+        cuentaId = nuevoId;
       }
     }
 
