@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SelectNative } from "@/components/ui/select-native";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { formatUSD } from "@/lib/utils";
-import { Download, Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Trash2, ArrowLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export interface FilaPatrimonio {
@@ -27,8 +26,7 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const fechas = Array.from(new Set(filas.map((f) => f.fecha_carga))).sort((a, b) => b.localeCompare(a));
-  const [fecha, setFecha] = useState<string>(fechas[0] ?? "todas");
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<FilaPatrimonio | null>(null);
   const [editAum, setEditAum] = useState("");
@@ -37,14 +35,26 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
   const [paraBorrar, setParaBorrar] = useState<FilaPatrimonio | null>(null);
   const [borrando, setBorrando] = useState(false);
 
-  const filtradas = useMemo(() => {
-    return filas
-      .filter((f) => fecha === "todas" || f.fecha_carga === fecha)
-      .filter((f) => !busqueda || f.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) || f.numero_cuenta.includes(busqueda))
-      .sort((a, b) => b.fecha_carga.localeCompare(a.fecha_carga));
-  }, [filas, fecha, busqueda]);
+  const porFecha = useMemo(() => {
+    const mapa = new Map<string, { total: number; cuentas: number }>();
+    filas.forEach((f) => {
+      const actual = mapa.get(f.fecha_carga) ?? { total: 0, cuentas: 0 };
+      actual.total += f.aum;
+      actual.cuentas += 1;
+      mapa.set(f.fecha_carga, actual);
+    });
+    return Array.from(mapa.entries())
+      .map(([fecha, v]) => ({ fecha, ...v }))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [filas]);
 
-  const total = filtradas.reduce((s, f) => s + f.aum, 0);
+  const detalleDeFecha = useMemo(() => {
+    if (!fechaSeleccionada) return [];
+    return filas
+      .filter((f) => f.fecha_carga === fechaSeleccionada)
+      .filter((f) => !busqueda || f.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) || f.numero_cuenta.includes(busqueda))
+      .sort((a, b) => b.aum - a.aum);
+  }, [filas, fechaSeleccionada, busqueda]);
 
   function abrirEditar(f: FilaPatrimonio) {
     setEditando(f);
@@ -83,53 +93,80 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
     router.refresh();
   }
 
-  function exportarExcel() {
-    const datos = filtradas.map((f) => ({
-      Fecha: f.fecha_carga,
-      Comitente: f.numero_cuenta,
-      Cliente: f.cliente_nombre,
-      AUM: f.aum,
-      Cash: f.cash,
-    }));
-    const ws = XLSX.utils.json_to_sheet(datos);
+  function exportarExcel(datos: FilaPatrimonio[], filename: string) {
+    const ws = XLSX.utils.json_to_sheet(
+      datos.map((f) => ({ Fecha: f.fecha_carga, Comitente: f.numero_cuenta, Cliente: f.cliente_nombre, AUM: f.aum, Cash: f.cash }))
+    );
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Patrimonio");
-    XLSX.writeFile(wb, "patrimonio.xlsx");
+    XLSX.writeFile(wb, filename);
   }
+
+  if (!fechaSeleccionada) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Tocá una fecha de cierre para ver el detalle por cuenta</p>
+          <Button variant="outline" size="sm" onClick={() => exportarExcel(filas, "patrimonio_todo.xlsx")}>
+            <Download className="h-3.5 w-3.5" /> Excel (todo)
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {porFecha.map((f) => (
+            <button key={f.fecha} onClick={() => setFechaSeleccionada(f.fecha)} className="text-left">
+              <Card className="transition-colors hover:bg-muted/50">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-medium">{f.fecha}</p>
+                    <p className="text-xs text-muted-foreground">{f.cuentas} cuentas</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold tabular text-accent">{formatUSD(f.total)}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+          ))}
+          {porFecha.length === 0 && <p className="col-span-full text-center text-muted-foreground py-12">Sin patrimonio cargado todavía.</p>}
+        </div>
+      </div>
+    );
+  }
+
+  const totalFecha = detalleDeFecha.reduce((s, f) => s + f.aum, 0);
 
   return (
     <div className="space-y-4">
+      <Button variant="ghost" size="sm" onClick={() => { setFechaSeleccionada(null); setBusqueda(""); }} className="-ml-2">
+        <ArrowLeft className="h-4 w-4" /> Volver a todas las fechas
+      </Button>
+
       <div className="flex flex-wrap items-center gap-2">
-        <SelectNative value={fecha} onChange={(e) => setFecha(e.target.value)} className="w-44">
-          <option value="todas">Todas las fechas</option>
-          {fechas.map((f) => <option key={f} value={f}>{f}</option>)}
-        </SelectNative>
+        <h2 className="text-lg font-semibold">{fechaSeleccionada}</h2>
         <Input
           placeholder="Buscar por cliente o comitente..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="max-w-xs"
+          className="max-w-xs ml-2"
         />
-        <Button variant="outline" size="sm" onClick={exportarExcel} className="ml-auto">
+        <Button variant="outline" size="sm" onClick={() => exportarExcel(detalleDeFecha, `patrimonio_${fechaSeleccionada}.xlsx`)} className="ml-auto">
           <Download className="h-3.5 w-3.5" /> Excel
         </Button>
       </div>
 
       <Card>
         <CardContent className="flex items-center justify-between p-4">
-          <span className="text-sm text-muted-foreground">{filtradas.length} registros</span>
-          <span className="text-lg font-semibold tabular">{formatUSD(total)}</span>
+          <span className="text-sm text-muted-foreground">{detalleDeFecha.length} cuentas</span>
+          <span className="text-lg font-semibold tabular">{formatUSD(totalFecha)}</span>
         </CardContent>
       </Card>
 
       <Table>
-        <THead>
-          <TR><TH>Fecha</TH><TH>Comitente</TH><TH>Cliente</TH><TH>AUM</TH><TH>Cash</TH><TH></TH></TR>
-        </THead>
+        <THead><TR><TH>Comitente</TH><TH>Cliente</TH><TH>AUM</TH><TH>Cash</TH><TH></TH></TR></THead>
         <TBody>
-          {filtradas.slice(0, 500).map((f) => (
+          {detalleDeFecha.map((f) => (
             <TR key={f.id}>
-              <TD>{f.fecha_carga}</TD>
               <TD className="tabular">{f.numero_cuenta}</TD>
               <TD>{f.cliente_nombre}</TD>
               <TD className="tabular">{formatUSD(f.aum)}</TD>
@@ -146,16 +183,11 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
               </TD>
             </TR>
           ))}
-          {filtradas.length === 0 && (
-            <TR><TD colSpan={6} className="text-center text-muted-foreground py-8">Sin resultados con esos filtros.</TD></TR>
+          {detalleDeFecha.length === 0 && (
+            <TR><TD colSpan={5} className="text-center text-muted-foreground py-8">Sin resultados con esos filtros.</TD></TR>
           )}
         </TBody>
       </Table>
-      {filtradas.length > 500 && (
-        <p className="text-center text-xs text-muted-foreground">
-          Mostrando las primeras 500 de {filtradas.length} — usá los filtros o exportá a Excel para ver el resto.
-        </p>
-      )}
 
       <Dialog open={!!editando} onOpenChange={(o) => !o && setEditando(null)}>
         <DialogContent>

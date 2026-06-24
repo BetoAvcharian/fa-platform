@@ -118,6 +118,29 @@ export function OrdenesTable({
     router.refresh();
   }
 
+  async function actualizarMonto(id: string, monto: string) {
+    const valor = Number(monto);
+    if (isNaN(valor)) {
+      toast.error("Monto inválido");
+      return;
+    }
+    const { error } = await supabase.from("licitacion_ordenes").update({ monto: valor }).eq("id", id);
+    if (error) {
+      toast.error("No se guardó el monto: " + error.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function actualizarMoneda(id: string, moneda: MonedaTipo) {
+    const { error } = await supabase.from("licitacion_ordenes").update({ moneda }).eq("id", id);
+    if (error) {
+      toast.error("No se guardó la moneda: " + error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   async function eliminar(id: string) {
     await supabase.from("licitacion_ordenes").delete().eq("id", id);
     router.refresh();
@@ -228,8 +251,23 @@ export function OrdenesTable({
                   placeholder="Comitente"
                 />
               </TD>
-              <TD className="tabular">{formatUSD(o.monto)}</TD>
-              <TD>{o.moneda}</TD>
+              <TD>
+                <Input
+                  type="number"
+                  defaultValue={o.monto}
+                  onBlur={(e) => actualizarMonto(o.id, e.target.value)}
+                  className="h-8 w-24 tabular"
+                />
+              </TD>
+              <TD>
+                <SelectNative
+                  value={o.moneda}
+                  onChange={(e) => actualizarMoneda(o.id, e.target.value as MonedaTipo)}
+                  className="h-8 w-24"
+                >
+                  {MONEDAS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </SelectNative>
+              </TD>
               <TD>
                 <SelectNative
                   value={o.estado}

@@ -13,6 +13,7 @@ import { WhatsappButton } from "@/components/crm/whatsapp-button";
 import { AgregarCuentaDialog } from "@/components/crm/agregar-cuenta-dialog";
 import { EditarCuentaDialog } from "@/components/crm/editar-cuenta-dialog";
 import { ActualizarSaldoDialog } from "@/components/crm/actualizar-saldo-dialog";
+import { HogarWidget } from "@/components/crm/hogar-widget";
 import { EliminarClienteDialog } from "@/components/crm/eliminar-cliente-dialog";
 import { PLAZAS } from "@/lib/types";
 
@@ -39,7 +40,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   let anioAnterior = hoy.getFullYear();
   if (mesAnterior === 0) { mesAnterior = 12; anioAnterior -= 1; }
 
-  const [{ data: otrosTitulares }, { data: kycRows }, { data: patrimonio }, { data: comisionesCuentas }] = await Promise.all([
+  const [{ data: otrosTitulares }, { data: kycRows }, { data: patrimonio }, { data: comisionesCuentas }, { data: hogaresDisponibles }, hogarInfoResult, miembrosResult] = await Promise.all([
     cuentaIds.length
       ? supabase.from("cuenta_titulares").select("cuenta_id, clientes:cliente_id (id, nombre, apellido)").in("cuenta_id", cuentaIds).neq("cliente_id", id)
       : Promise.resolve({ data: [] as any[] }),
@@ -52,7 +53,22 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     numerosCuenta.length
       ? supabase.from("comisiones").select("*").in("comitente", numerosCuenta).eq("periodo_mes", mesAnterior).eq("periodo_anio", anioAnterior)
       : Promise.resolve({ data: [] as any[] }),
+    supabase.from("hogares").select("id, nombre").order("nombre"),
+    cliente.hogar_id
+      ? supabase.from("hogares").select("nombre").eq("id", cliente.hogar_id).single()
+      : Promise.resolve({ data: null as any }),
+    cliente.hogar_id
+      ? supabase.from("clientes").select("id, nombre, apellido, potencial_usd").eq("hogar_id", cliente.hogar_id)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
+
+  const hogarInfo = (hogarInfoResult as any)?.data ?? null;
+  const miembrosHogar = ((miembrosResult as any)?.data ?? []).map((m: any) => ({
+    id: m.id,
+    nombre: m.nombre,
+    apellido: m.apellido,
+    potencial: Number(m.potencial_usd ?? 0),
+  }));
 
   const aumTotal = (patrimonio ?? [])
     .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
@@ -114,7 +130,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="oportunidades">Oportunidades</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perfil">
+        <TabsContent value="perfil" className="space-y-4">
           <Card>
             <CardContent className="grid grid-cols-2 gap-4 p-5 text-sm">
               <Field label="Razón social" value={cliente.razon_social} />
@@ -127,6 +143,13 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               </div>
             </CardContent>
           </Card>
+          <HogarWidget
+            clienteId={cliente.id}
+            hogarActualId={cliente.hogar_id}
+            hogarNombre={hogarInfo?.nombre ?? null}
+            hogaresDisponibles={hogaresDisponibles ?? []}
+            miembros={miembrosHogar}
+          />
         </TabsContent>
 
         <TabsContent value="cuentas">

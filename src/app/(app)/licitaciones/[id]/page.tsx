@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OrdenesTable } from "@/components/crm/ordenes-table";
 import { BackButton } from "@/components/ui/back-button";
+import { NuevaLicitacionDialog } from "@/components/crm/nueva-licitacion-dialog";
 
 export default async function LicitacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,7 +46,10 @@ export default async function LicitacionDetailPage({ params }: { params: Promise
           <h1 className="text-xl font-semibold">{licitacion.nombre}</h1>
           <p className="text-sm text-muted-foreground">{licitacion.instrumento ?? "Sin instrumento especificado"}</p>
         </div>
-        <Badge variant="accent">{licitacion.moneda_base}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="accent">{licitacion.moneda_base}</Badge>
+          <NuevaLicitacionDialog licitacion={licitacion} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

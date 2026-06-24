@@ -7,19 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectNative } from "@/components/ui/select-native";
 import { createClient } from "@/lib/supabase/client";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import type { Licitacion } from "@/lib/types";
 
-export function NuevaLicitacionDialog() {
+export function NuevaLicitacionDialog({ licitacion }: { licitacion?: Licitacion }) {
+  const esEdicion = !!licitacion;
   const [open, setOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [form, setForm] = useState({
-    nombre: "",
-    instrumento: "",
-    fecha_licitacion: "",
-    fecha_liquidacion: "",
-    moneda_base: "USD",
-    arancel_pct: "",
+    nombre: licitacion?.nombre ?? "",
+    instrumento: licitacion?.instrumento ?? "",
+    fecha_licitacion: licitacion?.fecha_licitacion ?? "",
+    fecha_liquidacion: licitacion?.fecha_liquidacion ?? "",
+    moneda_base: licitacion?.moneda_base ?? "USD",
+    arancel_pct: licitacion?.arancel_pct ? String(licitacion.arancel_pct) : "",
   });
   const router = useRouter();
   const supabase = createClient();
@@ -31,31 +33,48 @@ export function NuevaLicitacionDialog() {
       return;
     }
     setGuardando(true);
-    const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
-      .from("licitaciones")
-      .insert({ ...form, arancel_pct: form.arancel_pct ? Number(form.arancel_pct) : null, owner_id: user?.id })
-      .select()
-      .single();
+    const payload = { ...form, arancel_pct: form.arancel_pct ? Number(form.arancel_pct) : null };
 
-    setGuardando(false);
-    if (error) {
-      toast.error("Error: " + error.message);
-      return;
+    if (esEdicion) {
+      const { error } = await supabase.from("licitaciones").update(payload).eq("id", licitacion!.id);
+      setGuardando(false);
+      if (error) {
+        toast.error("Error: " + error.message);
+        return;
+      }
+      toast.success("Licitación actualizada");
+      setOpen(false);
+      router.refresh();
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("licitaciones")
+        .insert({ ...payload, owner_id: user?.id })
+        .select()
+        .single();
+      setGuardando(false);
+      if (error) {
+        toast.error("Error: " + error.message);
+        return;
+      }
+      toast.success("Licitación creada");
+      setOpen(false);
+      router.push(`/licitaciones/${data.id}`);
     }
-    toast.success("Licitación creada");
-    setOpen(false);
-    router.push(`/licitaciones/${data.id}`);
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm"><Plus className="h-4 w-4" /> Nueva licitación</Button>
+        {esEdicion ? (
+          <Button size="sm" variant="outline"><Pencil className="h-4 w-4" /> Editar</Button>
+        ) : (
+          <Button size="sm"><Plus className="h-4 w-4" /> Nueva licitación</Button>
+        )}
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>Nueva licitación</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{esEdicion ? "Editar licitación" : "Nueva licitación"}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Nombre *</label>
@@ -97,7 +116,9 @@ export function NuevaLicitacionDialog() {
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={guardando}>{guardando ? "Creando..." : "Crear y abrir"}</Button>
+            <Button type="submit" disabled={guardando}>
+              {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear y abrir"}
+            </Button>
           </div>
         </form>
       </DialogContent>

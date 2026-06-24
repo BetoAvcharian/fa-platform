@@ -25,6 +25,7 @@ import {
   NotebookPen,
   Receipt,
   TrendingUp,
+  Activity,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +45,7 @@ const NAV_GROUPS = [
   [
     { href: "/resumen-dia", label: "Resumen del día", icon: NotebookPen },
     { href: "/oportunidades", label: "Oportunidades", icon: Bell },
+    { href: "/actividad", label: "Actividad", icon: Activity },
   ],
   [
     { href: "/patrimonio", label: "Patrimonio", icon: TrendingUp },

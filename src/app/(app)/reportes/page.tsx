@@ -158,6 +158,21 @@ export default async function ReportesPage() {
     cuentas.map((cu) => ({ nombre: cu.numero_cuenta, valor: comisionPorComitente.get(cu.numero_cuenta) ?? 0 }))
   );
 
+  // --- RED DE REFERIDOS ---
+  const referidosPorPersona = new Map<string, { cantidad: number; aum: number }>();
+  clientes.forEach((c) => {
+    const ref = (c.referenciado_por ?? "").trim();
+    if (!ref) return;
+    const actual = referidosPorPersona.get(ref) ?? { cantidad: 0, aum: 0 };
+    actual.cantidad += 1;
+    actual.aum += aumPorCliente.get(c.id) ?? 0;
+    referidosPorPersona.set(ref, actual);
+  });
+  const rankingReferidos = Array.from(referidosPorPersona.entries())
+    .map(([nombre, v]) => ({ nombre, ...v }))
+    .sort((a, b) => b.aum - a.aum)
+    .slice(0, 15);
+
   return (
     <div className="space-y-6">
       <div>
@@ -307,6 +322,25 @@ export default async function ReportesPage() {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Red de Referidos</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <THead><TR><TH>Referenciado por</TH><TH>Clientes que trajo</TH><TH>AUM total de esos clientes</TH></TR></THead>
+            <TBody>
+              {rankingReferidos.map((r) => (
+                <TR key={r.nombre}>
+                  <TD>{r.nombre}</TD>
+                  <TD className="tabular">{r.cantidad}</TD>
+                  <TD className="tabular">{formatUSD(r.aum)}</TD>
+                </TR>
+              ))}
+              {rankingReferidos.length === 0 && <TR><TD colSpan={3} className="text-center text-muted-foreground py-6">Todavía no completaste "Referenciado por" en ningún cliente.</TD></TR>}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

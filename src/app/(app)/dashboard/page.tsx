@@ -5,14 +5,14 @@ import { AumChart } from "@/components/crm/aum-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake } from "lucide-react";
+import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake, Activity } from "lucide-react";
 import Link from "next/link";
 import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [clientes, { data: tareas }, patrimonio, { data: licitaciones }, comisionesPorMesRaw] = await Promise.all([
+  const [clientes, { data: tareas }, patrimonio, { data: licitaciones }, comisionesPorMesRaw, { data: actividadReciente }] = await Promise.all([
     fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to)),
     supabase.from("tareas").select("*").neq("estado", "completada"),
     fetchAllRows((from, to) =>
@@ -22,6 +22,11 @@ export default async function DashboardPage() {
     fetchAllRows((from, to) =>
       supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
     ),
+    supabase
+      .from("interacciones")
+      .select("*, clientes:cliente_id (id, nombre, apellido)")
+      .order("fecha", { ascending: false })
+      .limit(8),
   ]);
 
   const todosClientes = clientes;
@@ -211,6 +216,33 @@ export default async function DashboardPage() {
               >
                 <span className="text-sm">{c.nombre} {c.apellido}</span>
                 <Badge variant="accent">{c.diasFaltan === 0 ? "Hoy" : `en ${c.diasFaltan}d`}</Badge>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-accent" /> Actividad reciente
+            </CardTitle>
+            <Link href="/actividad" className="text-xs text-accent hover:underline">Ver todo</Link>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(actividadReciente ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">Sin interacciones registradas todavía.</p>
+            )}
+            {(actividadReciente ?? []).map((a: any) => (
+              <Link
+                key={a.id}
+                href={a.clientes ? `/clientes/${a.clientes.id}` : "#"}
+                className="block rounded-md px-2 py-1.5 hover:bg-muted"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{a.clientes ? `${a.clientes.nombre} ${a.clientes.apellido ?? ""}` : "Cliente eliminado"}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(a.fecha).toLocaleDateString("es-AR")}</span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate capitalize">{a.tipo} — {a.asunto}</p>
               </Link>
             ))}
           </CardContent>

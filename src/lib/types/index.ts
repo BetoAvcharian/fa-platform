@@ -59,8 +59,16 @@ export interface Cliente {
   banco_referencia: string | null;
   referenciado_por: string | null;
   prospecto_trabajando: boolean | null;
+  hogar_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Hogar {
+  id: string;
+  owner_id: string;
+  nombre: string;
+  created_at: string;
 }
 
 export type LicitacionEstadoOrden = "tentativo" | "confirmada" | "cancelada" | "cargada";

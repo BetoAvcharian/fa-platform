@@ -41,15 +41,13 @@ export default async function ComisionesPage() {
     })),
   ];
 
-  const anios = Array.from(new Set(filas.map((f) => f.periodo_anio))).sort((a, b) => b - a);
-
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Comisiones</h1>
-        <p className="text-sm text-muted-foreground">Totalizado por cliente y por mes — filtrá por año, mes o cliente</p>
+        <p className="text-sm text-muted-foreground">Totalizado por cliente y por mes</p>
       </div>
-      <ComisionesBrowser filas={filas} anios={anios} />
+      <ComisionesBrowser filas={filas} />
     </div>
   );
 }
