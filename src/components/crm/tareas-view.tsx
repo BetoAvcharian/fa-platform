@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TareaDialog } from "@/components/crm/tarea-dialog";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Pencil } from "lucide-react";
+import { Check, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { Tarea } from "@/lib/types";
 
-type TareaRow = Tarea & { cliente_nombre?: string };
+type TareaRow = Tarea & { cliente_nombre?: string; clientes_tarea?: { id: string; nombre: string; apellido: string | null }[] };
 interface ClienteOption { id: string; nombre: string; apellido: string | null }
 
 const PRIORIDAD_TONE = { alta: "danger", media: "warning", baja: "default" } as const;
@@ -21,6 +21,8 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
   const router = useRouter();
   const supabase = createClient();
   const [mesActual, setMesActual] = useState(new Date());
+  const [tareaParaEditar, setTareaParaEditar] = useState<TareaRow | null>(null);
+  const [fechaParaCrear, setFechaParaCrear] = useState<string | null>(null);
 
   async function marcarCompletada(id: string) {
     const { error } = await supabase.from("tareas").update({ estado: "completada" }).eq("id", id);
@@ -68,13 +70,13 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
       <TabsContent value="lista">
         <Table>
           <THead>
-            <TR><TH>Título</TH><TH>Cliente</TH><TH>Prioridad</TH><TH>Vencimiento</TH><TH>Estado</TH><TH></TH></TR>
+            <TR><TH>Título</TH><TH>Clientes</TH><TH>Prioridad</TH><TH>Vencimiento</TH><TH>Estado</TH><TH></TH></TR>
           </THead>
           <TBody>
             {tareas.map((t) => (
               <TR key={t.id}>
                 <TD>{t.titulo}</TD>
-                <TD>{t.cliente_nombre ?? "—"}</TD>
+                <TD>{t.cliente_nombre || "—"}</TD>
                 <TD><Badge variant={PRIORIDAD_TONE[t.prioridad]} className="capitalize">{t.prioridad}</Badge></TD>
                 <TD>{t.fecha_vencimiento ?? "—"}</TD>
                 <TD className="capitalize">{t.estado.replace("_", " ")}</TD>
@@ -83,6 +85,7 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
                     <TareaDialog
                       clientes={clientes}
                       tarea={t}
+                      clienteIdsIniciales={(t.clientes_tarea ?? []).map((c) => c.id)}
                       trigger={<Button size="icon" variant="ghost"><Pencil className="h-3.5 w-3.5" /></Button>}
                     />
                     {t.estado !== "completada" && (
@@ -110,6 +113,7 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
             </span>
             <Button variant="outline" size="sm" onClick={() => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1))}>→</Button>
           </div>
+          <p className="text-xs text-muted-foreground">Tocá un día vacío para crear una tarea, o una tarea para editarla.</p>
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
             {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => <div key={d}>{d}</div>)}
           </div>
@@ -117,21 +121,44 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
             {diasDelMes.map((d, i) => {
               const enMes = d.getMonth() === mesActual.getMonth();
               const items = tareasDelDia(d);
+              const key = d.toISOString().slice(0, 10);
               return (
-                <div
+                <button
                   key={i}
-                  className={`min-h-[80px] rounded-md border border-border p-1.5 text-xs ${enMes ? "" : "opacity-30"}`}
+                  type="button"
+                  onClick={() => setFechaParaCrear(key)}
+                  className={`min-h-[80px] rounded-md border border-border p-1.5 text-left text-xs transition-colors hover:border-accent ${enMes ? "" : "opacity-30"}`}
                 >
-                  <p className="mb-1 font-medium">{d.getDate()}</p>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-medium">{d.getDate()}</span>
+                    <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                  </div>
                   {items.slice(0, 3).map((t) => (
-                    <p key={t.id} className="truncate rounded bg-accent/15 px-1 py-0.5 text-accent">{t.titulo}</p>
+                    <p
+                      key={t.id}
+                      onClick={(e) => { e.stopPropagation(); setTareaParaEditar(t); }}
+                      className="truncate rounded bg-accent/15 px-1 py-0.5 text-accent hover:bg-accent/25"
+                    >
+                      {t.titulo}
+                    </p>
                   ))}
                   {items.length > 3 && <p className="text-muted-foreground">+{items.length - 3} más</p>}
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
+
+        {/* diálogo controlado: se abre solo al tocar un día o una tarea del calendario */}
+        <TareaDialog
+          clientes={clientes}
+          tarea={tareaParaEditar ?? undefined}
+          clienteIdsIniciales={(tareaParaEditar?.clientes_tarea ?? []).map((c) => c.id)}
+          fechaInicial={fechaParaCrear ?? undefined}
+          trigger={null}
+          open={!!(tareaParaEditar || fechaParaCrear)}
+          onOpenChange={(o) => { if (!o) { setTareaParaEditar(null); setFechaParaCrear(null); } }}
+        />
       </TabsContent>
     </Tabs>
   );

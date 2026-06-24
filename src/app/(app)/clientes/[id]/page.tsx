@@ -21,15 +21,20 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: cliente }, { data: cuentaTitulares }, { data: interacciones }, { data: tareas }, { data: historial }] =
+  const [{ data: cliente }, { data: cuentaTitulares }, { data: interacciones }, { data: tareaVinculos }, { data: historial }] =
     await Promise.all([
       supabase.from("clientes").select("*").eq("id", id).single(),
       supabase.from("cuenta_titulares").select("rol_titular, cuentas:cuenta_id (*)").eq("cliente_id", id),
       supabase.from("interacciones").select("*").eq("cliente_id", id).order("fecha", { ascending: false }),
-      supabase.from("tareas").select("*").eq("cliente_id", id).order("fecha_vencimiento", { ascending: true }),
+      supabase.from("tarea_clientes").select("tareas:tarea_id (*)").eq("cliente_id", id).order("tarea_id"),
       supabase.from("historial_cliente").select("*, usuarios:usuario_id (nombre, apellido)").eq("cliente_id", id).order("fecha", { ascending: false }),
     ]);
   if (!cliente) notFound();
+
+  const tareas = (tareaVinculos ?? [])
+    .map((v: any) => v.tareas)
+    .filter(Boolean)
+    .sort((a: any, b: any) => (a.fecha_vencimiento ?? "").localeCompare(b.fecha_vencimiento ?? ""));
 
   const cuentas = (cuentaTitulares ?? []).map((ct: any) => ({ ...ct.cuentas, rol_titular: ct.rol_titular }));
   const numerosCuenta = cuentas.map((c) => c.numero_cuenta);

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectNative } from "@/components/ui/select-native";
-import { ClienteCombobox } from "@/components/crm/cliente-combobox";
+import { ClienteMultiCombobox } from "@/components/crm/cliente-multi-combobox";
 import { createClient } from "@/lib/supabase/client";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -18,21 +18,32 @@ interface ClienteOption { id: string; nombre: string; apellido: string | null }
 export function TareaDialog({
   clientes,
   tarea,
+  clienteIdsIniciales,
+  fechaInicial,
   trigger,
+  open: openControlado,
+  onOpenChange: onOpenChangeControlado,
 }: {
   clientes: ClienteOption[];
   tarea?: Tarea;
+  clienteIdsIniciales?: string[];
+  fechaInicial?: string;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openInterno, setOpenInterno] = useState(false);
+  const open = openControlado ?? openInterno;
+  const setOpen = onOpenChangeControlado ?? setOpenInterno;
+
   const [guardando, setGuardando] = useState(false);
 
   const estadoInicial = {
     titulo: tarea?.titulo ?? "",
     descripcion: tarea?.descripcion ?? "",
-    cliente_id: tarea?.cliente_id ?? "",
+    clienteIds: clienteIdsIniciales ?? [],
     prioridad: tarea?.prioridad ?? "media",
-    fecha_vencimiento: tarea?.fecha_vencimiento ?? "",
+    fecha_vencimiento: tarea?.fecha_vencimiento ?? fechaInicial ?? "",
     estado: tarea?.estado ?? "pendiente",
   };
 
@@ -60,15 +71,33 @@ export function TareaDialog({
     const payload = {
       titulo: form.titulo,
       descripcion: form.descripcion || null,
-      cliente_id: form.cliente_id || null,
       prioridad: form.prioridad,
       fecha_vencimiento: form.fecha_vencimiento || null,
       estado: form.estado,
     };
 
-    const { error } = tarea
-      ? await supabase.from("tareas").update(payload).eq("id", tarea.id)
-      : await supabase.from("tareas").insert({ ...payload, owner_id: user?.id });
+    let tareaId = tarea?.id;
+    let error;
+
+    if (tarea) {
+      ({ error } = await supabase.from("tareas").update(payload).eq("id", tarea.id));
+    } else {
+      const { data, error: errorInsert } = await supabase
+        .from("tareas")
+        .insert({ ...payload, owner_id: user?.id })
+        .select("id")
+        .single();
+      error = errorInsert;
+      tareaId = data?.id;
+    }
+
+    if (!error && tareaId) {
+      // reescribe los vínculos con clientes (borra los viejos y pone los nuevos elegidos)
+      await supabase.from("tarea_clientes").delete().eq("tarea_id", tareaId);
+      if (form.clienteIds.length > 0) {
+        await supabase.from("tarea_clientes").insert(form.clienteIds.map((cliente_id) => ({ tarea_id: tareaId, cliente_id })));
+      }
+    }
 
     setGuardando(false);
     if (error) {
@@ -82,13 +111,15 @@ export function TareaDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button size="sm">
-            <Plus className="h-4 w-4" /> Nueva tarea
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button size="sm">
+              <Plus className="h-4 w-4" /> Nueva tarea
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{tarea ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
@@ -103,12 +134,11 @@ export function TareaDialog({
             <Textarea rows={2} value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Cliente (opcional)</label>
-            <ClienteCombobox
+            <label className="text-xs font-medium text-muted-foreground">Clientes (opcional, podés elegir varios)</label>
+            <ClienteMultiCombobox
               clientes={clientes}
-              value={form.cliente_id ?? ""}
-              onChange={(id) => setForm((f) => ({ ...f, cliente_id: id }))}
-              placeholder="Sin cliente asociado"
+              value={form.clienteIds}
+              onChange={(ids) => setForm((f) => ({ ...f, clienteIds: ids }))}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">

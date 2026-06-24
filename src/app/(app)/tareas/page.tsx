@@ -3,20 +3,29 @@ import { TareasView } from "@/components/crm/tareas-view";
 
 export default async function TareasPage() {
   const supabase = await createClient();
-  const { data: tareas } = await supabase
-    .from("tareas")
-    .select("*, clientes:cliente_id (nombre, apellido)")
-    .order("fecha_vencimiento", { ascending: true });
 
-  const { data: clientes } = await supabase
-    .from("clientes")
-    .select("id, nombre, apellido")
-    .order("nombre", { ascending: true });
+  const [{ data: tareas }, { data: clientes }, { data: vinculos }] = await Promise.all([
+    supabase.from("tareas").select("*").order("fecha_vencimiento", { ascending: true }),
+    supabase.from("clientes").select("id, nombre, apellido").order("nombre", { ascending: true }),
+    supabase.from("tarea_clientes").select("tarea_id, clientes:cliente_id (id, nombre, apellido)"),
+  ]);
 
-  const rows = (tareas ?? []).map((t: any) => ({
-    ...t,
-    cliente_nombre: t.clientes ? `${t.clientes.nombre} ${t.clientes.apellido ?? ""}` : undefined,
-  }));
+  const clientesPorTarea = new Map<string, { id: string; nombre: string; apellido: string | null }[]>();
+  (vinculos ?? []).forEach((v: any) => {
+    if (!v.clientes) return;
+    const lista = clientesPorTarea.get(v.tarea_id) ?? [];
+    lista.push(v.clientes);
+    clientesPorTarea.set(v.tarea_id, lista);
+  });
+
+  const rows = (tareas ?? []).map((t: any) => {
+    const clientesDeTarea = clientesPorTarea.get(t.id) ?? [];
+    return {
+      ...t,
+      clientes_tarea: clientesDeTarea,
+      cliente_nombre: clientesDeTarea.map((c) => `${c.nombre} ${c.apellido ?? ""}`).join(", "),
+    };
+  });
 
   return (
     <div className="space-y-4">
