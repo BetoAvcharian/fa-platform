@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { TareaDialog } from "@/components/crm/tarea-dialog";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Pencil, Plus } from "lucide-react";
+import { Check, Pencil, Plus, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { Tarea } from "@/lib/types";
 
@@ -23,6 +23,10 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
   const [mesActual, setMesActual] = useState(new Date());
   const [tareaParaEditar, setTareaParaEditar] = useState<TareaRow | null>(null);
   const [fechaParaCrear, setFechaParaCrear] = useState<string | null>(null);
+  const [mostrarCompletadas, setMostrarCompletadas] = useState(false);
+
+  const tareasVisibles = mostrarCompletadas ? tareas : tareas.filter((t) => t.estado !== "completada");
+  const cantidadCompletadas = tareas.filter((t) => t.estado === "completada").length;
 
   async function marcarCompletada(id: string) {
     const { error } = await supabase.from("tareas").update({ estado: "completada" }).eq("id", id);
@@ -52,9 +56,17 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
     return dias;
   }, [mesActual]);
 
+  function fechaLocal(d: Date) {
+    // evita el corrimiento de día que da toISOString() por la diferencia horaria
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   function tareasDelDia(d: Date) {
-    const key = d.toISOString().slice(0, 10);
-    return tareas.filter((t) => t.fecha_vencimiento === key);
+    const key = fechaLocal(d);
+    return tareas.filter((t) => t.fecha_vencimiento === key && (mostrarCompletadas || t.estado !== "completada"));
   }
 
   return (
@@ -67,13 +79,19 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
         <TareaDialog clientes={clientes} />
       </div>
 
-      <TabsContent value="lista">
+      <TabsContent value="lista" className="space-y-3">
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setMostrarCompletadas((v) => !v)}>
+            {mostrarCompletadas ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {mostrarCompletadas ? "Ocultar completadas" : `Mostrar completadas (${cantidadCompletadas})`}
+          </Button>
+        </div>
         <Table>
           <THead>
             <TR><TH>Título</TH><TH>Clientes</TH><TH>Prioridad</TH><TH>Vencimiento</TH><TH>Estado</TH><TH></TH></TR>
           </THead>
           <TBody>
-            {tareas.map((t) => (
+            {tareasVisibles.map((t) => (
               <TR key={t.id}>
                 <TD>{t.titulo}</TD>
                 <TD>{t.cliente_nombre || "—"}</TD>
@@ -97,8 +115,10 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
                 </TD>
               </TR>
             ))}
-            {tareas.length === 0 && (
-              <TR><TD colSpan={6} className="text-center text-muted-foreground py-8">No tenés tareas creadas todavía.</TD></TR>
+            {tareasVisibles.length === 0 && (
+              <TR><TD colSpan={6} className="text-center text-muted-foreground py-8">
+                {mostrarCompletadas ? "No tenés tareas creadas todavía." : "Sin tareas pendientes. 🎉"}
+              </TD></TR>
             )}
           </TBody>
         </Table>
@@ -121,7 +141,7 @@ export function TareasView({ tareas, clientes }: { tareas: TareaRow[]; clientes:
             {diasDelMes.map((d, i) => {
               const enMes = d.getMonth() === mesActual.getMonth();
               const items = tareasDelDia(d);
-              const key = d.toISOString().slice(0, 10);
+              const key = fechaLocal(d);
               return (
                 <button
                   key={i}

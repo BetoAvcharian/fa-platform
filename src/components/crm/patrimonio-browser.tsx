@@ -34,6 +34,8 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
   const [guardando, setGuardando] = useState(false);
   const [paraBorrar, setParaBorrar] = useState<FilaPatrimonio | null>(null);
   const [borrando, setBorrando] = useState(false);
+  const [paraBorrarLote, setParaBorrarLote] = useState<string | null>(null);
+  const [borrandoLote, setBorrandoLote] = useState(false);
 
   const porFecha = useMemo(() => {
     const mapa = new Map<string, { total: number; cuentas: number }>();
@@ -93,6 +95,21 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
     router.refresh();
   }
 
+  async function confirmarBorradoLote() {
+    if (!paraBorrarLote) return;
+    setBorrandoLote(true);
+    const { error } = await supabase.from("patrimonio").delete().eq("fecha_carga", paraBorrarLote);
+    setBorrandoLote(false);
+    if (error) {
+      toast.error("Error: " + error.message);
+      return;
+    }
+    toast.success(`Se borró todo el lote del ${paraBorrarLote}`);
+    setParaBorrarLote(null);
+    if (fechaSeleccionada === paraBorrarLote) setFechaSeleccionada(null);
+    router.refresh();
+  }
+
   function exportarExcel(datos: FilaPatrimonio[], filename: string) {
     const ws = XLSX.utils.json_to_sheet(
       datos.map((f) => ({ Fecha: f.fecha_carga, Comitente: f.numero_cuenta, Cliente: f.cliente_nombre, AUM: f.aum, Cash: f.cash }))
@@ -113,9 +130,9 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {porFecha.map((f) => (
-            <button key={f.fecha} onClick={() => setFechaSeleccionada(f.fecha)} className="text-left">
-              <Card className="transition-colors hover:bg-muted/50">
-                <CardContent className="flex items-center justify-between p-4">
+            <Card key={f.fecha} className="transition-colors hover:bg-muted/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setFechaSeleccionada(f.fecha)}>
                   <div>
                     <p className="font-medium">{f.fecha}</p>
                     <p className="text-xs text-muted-foreground">{f.cuentas} cuentas</p>
@@ -124,12 +141,35 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
                     <span className="text-lg font-semibold tabular text-accent">{formatUSD(f.total)}</span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </CardContent>
-              </Card>
-            </button>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setParaBorrarLote(f.fecha); }}
+                  className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-danger"
+                >
+                  <Trash2 className="h-3 w-3" /> Eliminar todo este lote
+                </button>
+              </CardContent>
+            </Card>
           ))}
           {porFecha.length === 0 && <p className="col-span-full text-center text-muted-foreground py-12">Sin patrimonio cargado todavía.</p>}
         </div>
+
+        <Dialog open={!!paraBorrarLote} onOpenChange={(o) => !o && setParaBorrarLote(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Eliminar todo el lote del {paraBorrarLote}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Esto borra **todas** las filas de patrimonio cargadas para la fecha {paraBorrarLote} (de todos los clientes). Usalo si subiste mal un archivo completo. No se puede deshacer.
+              </p>
+              <div className="flex justify-end gap-2 border-t border-border pt-3">
+                <Button variant="outline" onClick={() => setParaBorrarLote(null)}>Cancelar</Button>
+                <Button variant="destructive" disabled={borrandoLote} onClick={confirmarBorradoLote}>
+                  {borrandoLote ? "Eliminando..." : "Sí, eliminar todo el lote"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -152,6 +192,9 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
         />
         <Button variant="outline" size="sm" onClick={() => exportarExcel(detalleDeFecha, `patrimonio_${fechaSeleccionada}.xlsx`)} className="ml-auto">
           <Download className="h-3.5 w-3.5" /> Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setParaBorrarLote(fechaSeleccionada)} className="text-danger">
+          <Trash2 className="h-3.5 w-3.5" /> Eliminar lote
         </Button>
       </div>
 
@@ -222,6 +265,23 @@ export function PatrimonioBrowser({ filas }: { filas: FilaPatrimonio[] }) {
               <Button variant="outline" onClick={() => setParaBorrar(null)}>Cancelar</Button>
               <Button variant="destructive" disabled={borrando} onClick={confirmarBorrado}>
                 {borrando ? "Eliminando..." : "Sí, eliminar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!paraBorrarLote} onOpenChange={(o) => !o && setParaBorrarLote(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Eliminar todo el lote del {paraBorrarLote}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Esto borra todas las filas de patrimonio cargadas para la fecha {paraBorrarLote} (de todos los clientes). Usalo si subiste mal un archivo completo. No se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
+              <Button variant="outline" onClick={() => setParaBorrarLote(null)}>Cancelar</Button>
+              <Button variant="destructive" disabled={borrandoLote} onClick={confirmarBorradoLote}>
+                {borrandoLote ? "Eliminando..." : "Sí, eliminar todo el lote"}
               </Button>
             </div>
           </div>
