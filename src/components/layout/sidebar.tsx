@@ -80,7 +80,7 @@ export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground text-xs font-semibold">
             <Logo className="h-4 w-4 text-accent-foreground" />
         </div>
-        <span className="text-sm font-semibold">TIT CRM</span>
+        <span className="text-sm font-semibold">TITO CRM</span>
       </div>
 
       {/* fondo oscuro al abrir el menú en mobile */}
@@ -100,7 +100,7 @@ export function Sidebar({ nombre, rol }: { nombre: string; rol: string }) {
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground text-sm font-semibold">
             <Logo className="h-4.5 w-4.5 text-accent-foreground" />
             </div>
-            {!collapsed && <span className="text-sm font-semibold">TIT CRM</span>}
+            {!collapsed && <span className="text-sm font-semibold">TITO CRM</span>}
           </div>
           <button onClick={() => setMobileOpen(false)} className="text-sidebar-foreground/70 md:hidden">
             <X className="h-5 w-5" />

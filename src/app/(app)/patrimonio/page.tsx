@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { PatrimonioBrowser, type FilaPatrimonio } from "@/components/crm/patrimonio-browser";
+import { EvolucionAumChart } from "@/components/crm/evolucion-aum-chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function PatrimonioPage() {
   const supabase = await createClient();
@@ -36,6 +38,15 @@ export default async function PatrimonioPage() {
     };
   });
 
+  // evolución: total de AUM por fecha de cierre (suma de todas las cuentas)
+  const aumPorFecha = new Map<string, number>();
+  patrimonio.forEach((p) => {
+    aumPorFecha.set(p.fecha_carga, (aumPorFecha.get(p.fecha_carga) ?? 0) + Number(p.aum));
+  });
+  const evolucionAum = Array.from(aumPorFecha.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, total]) => ({ fecha, total }));
+
   return (
     <div className="space-y-4">
       <div>
@@ -44,6 +55,10 @@ export default async function PatrimonioPage() {
           Histórico completo de AUM — si algo se subió mal, lo corregís o lo borrás desde acá.
         </p>
       </div>
+      <Card>
+        <CardHeader><CardTitle>Evolución de AUM</CardTitle></CardHeader>
+        <CardContent><EvolucionAumChart data={evolucionAum} /></CardContent>
+      </Card>
       <PatrimonioBrowser filas={filas} />
     </div>
   );

@@ -1,4 +1,4 @@
-# TIT CRM — Wealth Management CRM
+# TITO CRM — Wealth Management CRM
 
 CRM para Financial Advisors y equipos de Wealth Management. Next.js 15 + TypeScript + Tailwind + Supabase (Postgres + Auth + Storage + RLS) + Recharts.
 

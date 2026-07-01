@@ -5,7 +5,7 @@ import { AumChart } from "@/components/crm/aum-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake, Activity } from "lucide-react";
+import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake, Activity, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 
@@ -70,9 +70,28 @@ export default async function DashboardPage() {
     return { fecha: mes, aum, comisiones: com, roa };
   });
   const aumActual = [...aumPorMes.values()].at(-1) ?? 0;
+  const hoy = new Date();
+
+  // Comisiones semestre civil actual (Ene-Jun o Jul-Dic según mes corriente)
+  const mesHoy = hoy.getMonth() + 1; // 1-12
+  const anioHoy = hoy.getFullYear();
+  const esPrimerSemestre = mesHoy <= 6;
+  const mesesSemestre = esPrimerSemestre ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
+  const comisionesSemestre = comisionesPorMesRaw
+    .filter((c) => c.periodo_anio === anioHoy && mesesSemestre.includes(c.periodo_mes))
+    .reduce((s, c) => s + Number(c.total), 0);
+
+  // Comisión mes anterior
+  let mesAnterior = mesHoy - 1;
+  let anioAnterior = anioHoy;
+  if (mesAnterior === 0) { mesAnterior = 12; anioAnterior -= 1; }
+  const mesAnteriorKey = `${anioAnterior}-${String(mesAnterior).padStart(2, "0")}`;
+  const comisionMesAnterior = comisionesPorMes.get(mesAnteriorKey) ?? 0;
+
+  // Último ROA anualizado disponible (el más reciente con datos de comisión y AUM)
+  const ultimoRoa = [...chartData].reverse().find((d) => d.roa !== null)?.roa ?? null;
 
   const tareasPendientes = tareas ?? [];
-  const hoy = new Date();
   const en21Dias = new Date();
   en21Dias.setDate(hoy.getDate() + 21);
   const licitacionesProximas = (licitaciones ?? []).filter((l) => {
@@ -108,7 +127,27 @@ export default async function DashboardPage() {
         <StatCard label="AUM total" value={formatUSD(aumActual)} icon={Wallet} tone="success" />
         <StatCard label="Clientes activos" value={String(activos.length)} icon={Users} />
         <StatCard label="Prospectos activos" value={String(prospectos.length)} icon={UserPlus} />
-        <StatCard label="Tareas pendientes" value={String(tareasPendientes.length)} icon={CheckSquare} tone="warning" />
+        <StatCard label="Tareas pendientes" value={String(tareasPendientes.filter((t) => t.estado !== "completada").length)} icon={CheckSquare} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label={`Comisiones ${esPrimerSemestre ? "1°" : "2°"} semestre ${anioHoy}`}
+          value={formatUSD(comisionesSemestre)}
+          icon={Wallet}
+          tone="success"
+        />
+        <StatCard
+          label="Comisión mes anterior"
+          value={formatUSD(comisionMesAnterior)}
+          icon={Wallet}
+        />
+        <StatCard
+          label="ROA anualizado (último)"
+          value={ultimoRoa !== null ? `${ultimoRoa.toFixed(2)}%` : "—"}
+          icon={BarChart3}
+          tone={ultimoRoa !== null && ultimoRoa > 0 ? "success" : "default"}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

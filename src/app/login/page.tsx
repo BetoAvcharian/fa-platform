@@ -37,7 +37,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-foreground font-semibold">
             <Logo className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h1 className="text-lg font-semibold text-sidebar-foreground">TIT CRM</h1>
+          <h1 className="text-lg font-semibold text-sidebar-foreground">TITO CRM</h1>
           <p className="text-sm text-sidebar-foreground/60">Wealth Management CRM</p>
         </div>
 

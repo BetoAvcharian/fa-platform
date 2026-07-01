@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { ComisionesBrowser, type FilaComisionResumen } from "@/components/crm/comisiones-browser";
+import { EvolucionComisionesChart } from "@/components/crm/evolucion-comisiones-chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ComisionesPage() {
   const supabase = await createClient();
@@ -41,12 +43,29 @@ export default async function ComisionesPage() {
     })),
   ];
 
+  // evolución: total de comisiones por mes
+  const [comisionesPorMesTotal] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase.from("v_comisiones_por_mes").select("periodo_mes, periodo_anio, total").range(from, to)
+    ),
+  ]);
+  const evolucionComisiones = comisionesPorMesTotal
+    .sort((a, b) => `${a.periodo_anio}-${a.periodo_mes}`.localeCompare(`${b.periodo_anio}-${b.periodo_mes}`))
+    .map((c) => ({
+      fecha: `${String(c.periodo_mes).padStart(2,"0")}/${c.periodo_anio}`,
+      total: Number(c.total),
+    }));
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Comisiones</h1>
         <p className="text-sm text-muted-foreground">Totalizado por cliente y por mes</p>
       </div>
+      <Card>
+        <CardHeader><CardTitle>Evolución de comisiones</CardTitle></CardHeader>
+        <CardContent><EvolucionComisionesChart data={evolucionComisiones} /></CardContent>
+      </Card>
       <ComisionesBrowser filas={filas} />
     </div>
   );
