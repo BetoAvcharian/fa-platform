@@ -75,21 +75,20 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     potencial: Number(m.potencial_usd ?? 0),
   }));
 
-  const aumTotal = (patrimonio ?? [])
-    .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
-    .reduce((sum, p) => sum + Number(p.aum), 0);
+  // AUM: solo del dato más reciente de cada cuenta (la primera fila de cada cuenta, ya viene desc por fecha)
+  const aumPorCuentaMap = new Map<string, number>();
+  (patrimonio ?? []).forEach((p) => {
+    if (!aumPorCuentaMap.has(p.numero_cuenta)) aumPorCuentaMap.set(p.numero_cuenta, Number(p.aum));
+  });
 
+  const aumTotal = Array.from(aumPorCuentaMap.values()).reduce((sum, aum) => sum + aum, 0);
   const cuentasLocales = new Set(cuentas.filter((c) => c.plaza === "local").map((c) => c.numero_cuenta));
-  const aumLocal = (patrimonio ?? [])
-    .filter((p, i, arr) => arr.findIndex((x) => x.numero_cuenta === p.numero_cuenta) === i)
-    .filter((p) => cuentasLocales.has(p.numero_cuenta))
-    .reduce((sum, p) => sum + Number(p.aum), 0);
+  const aumLocal = Array.from(aumPorCuentaMap.entries())
+    .filter(([num]) => cuentasLocales.has(num))
+    .reduce((sum, [, aum]) => sum + aum, 0);
   const aumOffshore = aumTotal - aumLocal;
 
-  const aumPorCuentaIndividual = new Map<string, number>();
-  (patrimonio ?? []).forEach((p) => {
-    if (!aumPorCuentaIndividual.has(p.numero_cuenta)) aumPorCuentaIndividual.set(p.numero_cuenta, Number(p.aum));
-  });
+  const aumPorCuentaIndividual = aumPorCuentaMap;
 
   const comisionPorCuenta = new Map<string, number>();
   (comisionesCuentas ?? []).forEach((com) => {

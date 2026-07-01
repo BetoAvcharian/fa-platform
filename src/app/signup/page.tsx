@@ -47,7 +47,7 @@ export default function SignupPage() {
             <Logo className="h-6 w-6 text-accent-foreground" />
           </div>
           <h1 className="text-lg font-semibold text-sidebar-foreground">Crear cuenta</h1>
-          <p className="text-sm text-sidebar-foreground/60">TITO CRM</p>
+          <p className="text-sm text-sidebar-foreground/60">Wealth CRM</p>
         </div>
 
         {!enviado ? (

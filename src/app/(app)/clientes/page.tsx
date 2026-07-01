@@ -22,10 +22,15 @@ export default async function ClientesPage() {
     ),
   ]);
 
+  // AUM: siempre del último mes cargado en el sistema (globalmente).
+  // Si un cliente no tiene dato en ese mes, es 0 — no mostrar un dato viejo.
+  const ultimaFecha = patrimonio.length > 0 ? patrimonio[patrimonio.length - 1].fecha_carga : null;
   const aumPorCuenta = new Map<string, number>();
-  patrimonio.forEach((p) => {
-    if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
-  });
+  if (ultimaFecha) {
+    patrimonio
+      .filter((p) => p.fecha_carga === ultimaFecha)
+      .forEach((p) => aumPorCuenta.set(p.numero_cuenta, Number(p.aum)));
+  }
 
   // si una cuenta tiene más de un titular (mancomunada), se divide entre todos
   // para que el AUM total de la lista no quede duplicado

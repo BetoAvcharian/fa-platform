@@ -57,11 +57,14 @@ export default async function ReportesPage() {
   const activos = clientes.filter((c) => c.tipo === "cliente" && c.estado === "activo");
   const prospectos = clientes.filter((c) => c.tipo === "prospecto" && c.estado !== "perdido");
 
-  // AUM más reciente por número de cuenta
+  // AUM siempre del último mes cargado globalmente — si no tiene dato ese mes = 0
+  const ultimaFechaAum = patrimonio.length > 0 ? patrimonio[0].fecha_carga : null;
   const aumPorCuenta = new Map<string, number>();
-  patrimonio.forEach((p) => {
-    if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum));
-  });
+  if (ultimaFechaAum) {
+    patrimonio
+      .filter((p) => p.fecha_carga === ultimaFechaAum)
+      .forEach((p) => { if (!aumPorCuenta.has(p.numero_cuenta)) aumPorCuenta.set(p.numero_cuenta, Number(p.aum)); });
+  }
 
   // AUM por cliente — pasando por la tabla de titulares (si una cuenta es
   // mancomunada, se divide entre la cantidad de titulares para que el total

@@ -5,14 +5,14 @@ import { AumChart } from "@/components/crm/aum-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD, diasDesde } from "@/lib/utils";
-import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake, Activity, BarChart3 } from "lucide-react";
+import { Wallet, Users, UserPlus, CheckSquare, AlertTriangle, Gavel, Cake, Activity, BarChart3, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { SinContactoRow } from "@/components/crm/sin-contacto-row";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [clientes, { data: tareas }, patrimonio, { data: licitaciones }, comisionesPorMesRaw, { data: actividadReciente }] = await Promise.all([
+  const [clientes, { data: tareas }, patrimonio, { data: licitaciones }, comisionesPorMesRaw, { data: actividadReciente }, { data: proximosEventos }] = await Promise.all([
     fetchAllRows((from, to) => supabase.from("clientes").select("*").range(from, to)),
     supabase.from("tareas").select("*").neq("estado", "completada"),
     fetchAllRows((from, to) =>
@@ -27,6 +27,12 @@ export default async function DashboardPage() {
       .select("*, clientes:cliente_id (id, nombre, apellido)")
       .order("fecha", { ascending: false })
       .limit(8),
+    supabase
+      .from("eventos")
+      .select("*")
+      .gte("fecha", new Date().toISOString().slice(0, 10))
+      .order("fecha", { ascending: true })
+      .limit(3),
   ]);
 
   const todosClientes = clientes;
@@ -124,10 +130,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="AUM total" value={formatUSD(aumActual)} icon={Wallet} tone="success" />
-        <StatCard label="Clientes activos" value={String(activos.length)} icon={Users} />
-        <StatCard label="Prospectos activos" value={String(prospectos.length)} icon={UserPlus} />
-        <StatCard label="Tareas pendientes" value={String(tareasPendientes.filter((t) => t.estado !== "completada").length)} icon={CheckSquare} />
+        <StatCard label="AUM total" value={formatUSD(aumActual)} icon={Wallet} tone="success" href="/patrimonio" />
+        <StatCard label="Clientes activos" value={String(activos.length)} icon={Users} href="/clientes" />
+        <StatCard label="Prospectos activos" value={String(prospectos.length)} icon={UserPlus} href="/prospectos" />
+        <StatCard label="Tareas pendientes" value={String(tareasPendientes.filter((t) => t.estado !== "completada").length)} icon={CheckSquare} href="/tareas" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -136,17 +142,20 @@ export default async function DashboardPage() {
           value={formatUSD(comisionesSemestre)}
           icon={Wallet}
           tone="success"
+          href="/comisiones"
         />
         <StatCard
           label="Comisión mes anterior"
           value={formatUSD(comisionMesAnterior)}
           icon={Wallet}
+          href="/comisiones"
         />
         <StatCard
           label="ROA anualizado (último)"
           value={ultimoRoa !== null ? `${ultimoRoa.toFixed(2)}%` : "—"}
           icon={BarChart3}
           tone={ultimoRoa !== null && ultimoRoa > 0 ? "success" : "default"}
+          href="/reportes"
         />
       </div>
 
@@ -287,6 +296,31 @@ export default async function DashboardPage() {
                   <span className="text-xs text-muted-foreground">{new Date(a.fecha).toLocaleDateString("es-AR")}</span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate capitalize">{a.tipo} — {a.asunto}</p>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-accent" /> Próximos eventos
+            </CardTitle>
+            <Link href="/eventos" className="text-xs text-accent hover:underline">Ver todos</Link>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(proximosEventos ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">Sin eventos próximos.</p>
+            )}
+            {(proximosEventos ?? []).map((e: any) => (
+              <Link key={e.id} href="/eventos" className="block rounded-md px-2 py-1.5 hover:bg-muted">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{e.titulo}</span>
+                  <span className="text-xs text-muted-foreground">{e.fecha}</span>
+                </div>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {e.tipo}{e.lugar ? ` · ${e.lugar}` : ""}{e.confirmado ? " ✓" : ""}
+                </p>
               </Link>
             ))}
           </CardContent>
