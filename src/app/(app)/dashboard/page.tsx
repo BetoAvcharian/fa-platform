@@ -58,10 +58,15 @@ export default async function DashboardPage() {
   });
 
   const todosLosMeses = Array.from(new Set([...aumPorMes.keys(), ...comisionesPorMes.keys()])).sort();
-  const chartData = todosLosMeses.map((mes) => {
+  const chartData = todosLosMeses.map((mes, i) => {
     const aum = aumPorMes.get(mes) ?? null;
     const com = comisionesPorMes.get(mes) ?? null;
-    const roa = aum && com && aum > 0 ? (com / aum) * 100 : null;
+    // ROA anualizado = (comisión_mes / promedio_AUM_2_meses) × 12 × 100
+    // promedio = (AUM mes anterior + AUM mes actual) / 2
+    const mesPrevio = i > 0 ? todosLosMeses[i - 1] : null;
+    const aumPrevio = mesPrevio ? (aumPorMes.get(mesPrevio) ?? null) : null;
+    const promedioAum = aum && aumPrevio ? (aum + aumPrevio) / 2 : aum;
+    const roa = promedioAum && com && promedioAum > 0 ? (com / promedioAum) * 12 * 100 : null;
     return { fecha: mes, aum, comisiones: com, roa };
   });
   const aumActual = [...aumPorMes.values()].at(-1) ?? 0;
@@ -109,7 +114,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Evolución de AUM, Comisiones y ROA</CardTitle>
+            <CardTitle>Evolución de AUM, Comisiones y ROA Anualizado</CardTitle>
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (

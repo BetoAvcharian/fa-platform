@@ -35,28 +35,36 @@ export function TareaDialog({
   const [openInterno, setOpenInterno] = useState(false);
   const open = openControlado ?? openInterno;
   const setOpen = onOpenChangeControlado ?? setOpenInterno;
-
   const [guardando, setGuardando] = useState(false);
-
-  const estadoInicial = {
+  const [form, setForm] = useState({
     titulo: tarea?.titulo ?? "",
     descripcion: tarea?.descripcion ?? "",
     clienteIds: clienteIdsIniciales ?? [],
     prioridad: tarea?.prioridad ?? "media",
     fecha_vencimiento: tarea?.fecha_vencimiento ?? fechaInicial ?? "",
     estado: tarea?.estado ?? "pendiente",
-  };
-
-  const [form, setForm] = useState(estadoInicial);
+  });
   const router = useRouter();
   const supabase = createClient();
 
+  // cada vez que el diálogo se abre, recarga el form con los props actuales
+  // (importante para el calendario: fechaInicial cambia entre renders)
+  useEffect(() => {
+    if (open) {
+      setForm({
+        titulo: tarea?.titulo ?? "",
+        descripcion: tarea?.descripcion ?? "",
+        clienteIds: clienteIdsIniciales ?? [],
+        prioridad: tarea?.prioridad ?? "media",
+        fecha_vencimiento: tarea?.fecha_vencimiento ?? fechaInicial ?? "",
+        estado: tarea?.estado ?? "pendiente",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   function handleOpenChange(nuevoEstado: boolean) {
     setOpen(nuevoEstado);
-    if (nuevoEstado) {
-      // al abrir, siempre arranca limpio (si es "Nueva tarea") o con los datos actuales (si es editar)
-      setForm(estadoInicial);
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {

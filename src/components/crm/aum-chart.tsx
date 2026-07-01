@@ -38,7 +38,7 @@ export function AumChart({ data }: { data: ChartPoint[] }) {
         {/* eje del ROA, oculto, solo para que la línea tenga su propia escala (es %, no $) */}
         <YAxis yAxisId="roa" hide domain={[0, "auto"]} />
         <Tooltip
-          formatter={(value: number, name: string) => (name === "ROA %" ? `${value.toFixed(2)}%` : formatUSD(value))}
+          formatter={(value: number, name: string) => (name === "ROA Anualizado %" ? `${value.toFixed(2)}%` : formatUSD(value))}
           contentStyle={{
             background: "hsl(var(--card))",
             border: "1px solid hsl(var(--border))",
@@ -71,7 +71,7 @@ export function AumChart({ data }: { data: ChartPoint[] }) {
           yAxisId="roa"
           type="monotone"
           dataKey="roa"
-          name="ROA %"
+          name="ROA Anualizado %"
           stroke="hsl(265 83% 65%)"
           strokeWidth={2}
           strokeDasharray="4 3"
